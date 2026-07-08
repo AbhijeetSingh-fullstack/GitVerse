@@ -28,6 +28,8 @@ export default function Dashboard() {
   // Simulation State
   const [simulationMode, setSimulationMode] = useState(false);
   const [simulatedCommits, setSimulatedCommits] = useState(0);
+  const [simulatedRepos, setSimulatedRepos] = useState(0);
+  const [simulatedStars, setSimulatedStars] = useState(0);
 
   const supabase = createClient();
 
@@ -45,6 +47,8 @@ export default function Dashboard() {
           const githubData = await fetchGitHubStats(username, providerToken);
           setStats(githubData);
           setSimulatedCommits(githubData.commits || 0);
+          setSimulatedRepos(githubData.repos || 0);
+          setSimulatedStars(githubData.stars || 0);
         }
       }
       setLoading(false);
@@ -53,7 +57,12 @@ export default function Dashboard() {
   }, [supabase.auth]);
 
   const baseCommits = stats?.commits || 0;
+  const baseRepos = stats?.repos || 0;
+  const baseStars = stats?.stars || 0;
+
   const commits = simulationMode ? simulatedCommits : baseCommits;
+  const repos = simulationMode ? simulatedRepos : baseRepos;
+  const stars = simulationMode ? simulatedStars : baseStars;
 
   // Determine Level for UI
   let currentLevelIdx = 0;
@@ -78,26 +87,54 @@ export default function Dashboard() {
       
       {/* Simulation Slider (Visible only when Simulation Mode is ON) */}
       {simulationMode && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-4 rounded-xl border border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] flex flex-col gap-2 w-[600px]">
-          <div className="flex justify-between w-full">
-            <span className="text-sm font-bold text-orange-400">Time Simulator</span>
-            <span className="text-sm font-bold">{simulatedCommits} Commits (Level {currentLevelIdx})</span>
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-4 rounded-xl border border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)] flex flex-col gap-4 w-[600px]">
+          
+          <div>
+            <div className="flex justify-between w-full mb-1">
+              <span className="text-sm font-bold text-orange-400">Commits (Height)</span>
+              <span className="text-sm font-bold">{simulatedCommits} Commits (Level {currentLevelIdx})</span>
+            </div>
+            <input 
+              type="range" min="0" max="100000" 
+              value={simulatedCommits} 
+              onChange={(e) => setSimulatedCommits(parseInt(e.target.value))}
+              className="w-full accent-orange-500"
+            />
           </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="100000" 
-            value={simulatedCommits} 
-            onChange={(e) => setSimulatedCommits(parseInt(e.target.value))}
-            className="w-full accent-orange-500"
-          />
+
+          <div>
+            <div className="flex justify-between w-full mb-1">
+              <span className="text-sm font-bold text-blue-400">Repos (Expansion)</span>
+              <span className="text-sm font-bold">{simulatedRepos} Repos</span>
+            </div>
+            <input 
+              type="range" min="0" max="500" 
+              value={simulatedRepos} 
+              onChange={(e) => setSimulatedRepos(parseInt(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between w-full mb-1">
+              <span className="text-sm font-bold text-yellow-400">Stars (Laboratories)</span>
+              <span className="text-sm font-bold">{simulatedStars} Stars</span>
+            </div>
+            <input 
+              type="range" min="0" max="1000" 
+              value={simulatedStars} 
+              onChange={(e) => setSimulatedStars(parseInt(e.target.value))}
+              className="w-full accent-yellow-500"
+            />
+          </div>
+
         </div>
       )}
 
       {/* 3D Background / Interactive Canvas */}
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#1a0505] to-[#0a0202]">
         <Canvas camera={{ position: [0, 5, 10], fov: 45 }}>
-          <Planet commits={commits} repos={stats?.repos || 0} stars={stats?.stars || 0} />
+          <Planet commits={commits} repos={repos} stars={stars} />
         </Canvas>
       </div>
 
