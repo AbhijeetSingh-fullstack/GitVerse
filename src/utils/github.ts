@@ -4,6 +4,7 @@ export interface GitHubStats {
   commits: number;
   repos: number;
   followers: number;
+  stars: number;
   username: string;
 }
 
@@ -23,7 +24,6 @@ export async function fetchGitHubStats(username: string, providerToken?: string)
     const userData = await userRes.json();
 
     // 2. Fetch exact profile contributions by scraping the GitHub contributions graph
-    // This runs on the server so we don't have CORS issues, and it gets the exact number the user sees on their profile!
     let exactCommits = 0;
     try {
       const contribRes = await fetch(`https://github.com/users/${username}/contributions`);
@@ -38,7 +38,6 @@ export async function fetchGitHubStats(username: string, providerToken?: string)
       console.warn("Could not fetch exact contributions from profile", e);
     }
 
-    // Fallback to API if scraping fails
     if (exactCommits === 0) {
       try {
         const searchRes = await fetch(`https://api.github.com/search/commits?q=author:${username}`, { 
@@ -53,15 +52,28 @@ export async function fetchGitHubStats(username: string, providerToken?: string)
       }
     }
 
+    // 3. Fetch Stars (sum of stargazers_count across up to 100 repos)
+    let totalStars = 0;
+    try {
+      const reposRes = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`, { headers });
+      if (reposRes.ok) {
+        const reposData = await reposRes.json();
+        totalStars = reposData.reduce((acc: number, repo: any) => acc + repo.stargazers_count, 0);
+      }
+    } catch (e) {
+      console.warn("Could not fetch repos for stars", e);
+    }
+
     return {
       commits: exactCommits,
       repos: userData.public_repos || 0,
       followers: userData.followers || 0,
+      stars: totalStars,
       username: userData.login
     };
 
   } catch (error) {
     console.error("Error fetching GitHub stats:", error);
-    return { commits: 0, repos: 0, followers: 0, username };
+    return { commits: 0, repos: 0, followers: 0, stars: 0, username };
   }
 }

@@ -1,188 +1,255 @@
 "use client";
 
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import { OrbitControls, Stars } from "@react-three/drei";
+import { OrbitControls, Sparkles, Grid } from "@react-three/drei";
 import * as THREE from "three";
-import { createNoise3D } from "simplex-noise";
 
-export type PlanetTheme = 'desert' | 'ice' | 'volcanic' | 'toxic';
+// ==========================================
+// PREMIUM CINEMATIC MATERIALS
+// ==========================================
+const matSand = new THREE.MeshStandardMaterial({ color: "#5a1a08", roughness: 1.0, flatShading: true });
+const matMetal = new THREE.MeshStandardMaterial({ color: "#aaaaaa", metalness: 0.9, roughness: 0.3 });
+const matDarkMetal = new THREE.MeshStandardMaterial({ color: "#111111", metalness: 0.9, roughness: 0.2 });
+const matGlass = new THREE.MeshPhysicalMaterial({ color: "#ff4400", transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, emissive: "#ff1100", emissiveIntensity: 0.4 });
+const matWireframe = new THREE.MeshBasicMaterial({ color: "#222222", wireframe: true, transparent: true, opacity: 0.5 });
+const matSolar = new THREE.MeshPhysicalMaterial({ color: "#0033ff", metalness: 1, roughness: 0.1, clearcoat: 1 });
+const matNeonCyan = new THREE.MeshBasicMaterial({ color: "#00ffff" });
+const matNeonOrange = new THREE.MeshBasicMaterial({ color: "#ff6600" });
+const matPrestige = new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#ffaa00", emissiveIntensity: 2 });
 
-const THEMES = {
-  desert: {
-    rock: new THREE.Color("#8B3A3A"),
-    soil: new THREE.Color("#cd853f"),
-    life: new THREE.Color("#2e8b57"),
-    atmosphere: "#4ca8ff",
-    ocean: new THREE.Color("#0f5e9c")
-  },
-  ice: {
-    rock: new THREE.Color("#90a4ae"),
-    soil: new THREE.Color("#cfd8dc"),
-    life: new THREE.Color("#80cbc4"),
-    atmosphere: "#81d4fa",
-    ocean: new THREE.Color("#0277bd")
-  },
-  volcanic: {
-    rock: new THREE.Color("#212121"),
-    soil: new THREE.Color("#3e2723"),
-    life: new THREE.Color("#ffb300"), 
-    atmosphere: "#ff8a65",
-    ocean: new THREE.Color("#d84315") 
-  },
-  toxic: {
-    rock: new THREE.Color("#33691e"),
-    soil: new THREE.Color("#558b2f"),
-    life: new THREE.Color("#9e9d24"),
-    atmosphere: "#c0ca33",
-    ocean: new THREE.Color("#827717") 
-  }
-};
+// Geometries (Instanced/Reused for performance)
+const geoDome = new THREE.IcosahedronGeometry(1, 1);
+const geoStrut = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
+const geoPanel = new THREE.BoxGeometry(1.2, 0.8, 0.05);
 
-export default function Planet({ commits = 0, theme = 'desert' }: { commits: number, theme?: PlanetTheme }) {
-  const planetRef = useRef<THREE.Group>(null);
-  const atmosphereRef = useRef<THREE.Mesh>(null);
-  const waterRef = useRef<THREE.Mesh>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
+function noise2D(x: number, y: number) {
+  return Math.sin(x * 0.4) * Math.cos(y * 0.4) * 0.6 + Math.sin(x * 0.1 + y * 0.2) * 1.5;
+}
+
+export default function MarsColony({ commits = 0, repos = 0, stars = 0 }: { commits: number, repos: number, stars: number }) {
   
-  useFrame(({ clock }) => {
-    if (planetRef.current) {
-      planetRef.current.rotation.y += 0.0005;
-    }
-    if (atmosphereRef.current) {
-      const scale = 1.05 + Math.sin(clock.elapsedTime * 1.5) * 0.005;
-      atmosphereRef.current.scale.set(scale, scale, scale);
-    }
-    if (waterRef.current) {
-      waterRef.current.rotation.y -= 0.0002;
-    }
-  });
+  // Colony Metrics
+  const buildingCount = Math.max(10, repos * 5); 
+  const colonyRadius = Math.max(5, Math.sqrt(repos) * 2.5); 
+  const techLevel = commits < 50 ? 1 : commits < 300 ? 2 : commits < 1000 ? 3 : 4;
+  const monumentHeight = Math.min(12, 2 + (stars * 0.1));
 
-  const level = commits <= 100 ? 1 : commits <= 500 ? 2 : commits <= 2000 ? 3 : 4;
-  const isLevel2 = level >= 2;
-  const isLevel3 = level >= 3;
-  const isLevel4 = level >= 4;
-
-  const currentTheme = THEMES[theme];
-
-  // Generate bumpy procedural geometry ONCE
-  const { geometry, elevations } = useMemo(() => {
-    const geo = new THREE.SphereGeometry(2, 128, 128);
+  // Generate Mars Terrain
+  const terrainGeo = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(120, 120, 60, 60);
+    geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position;
-    const noise3D = createNoise3D();
-    const elevationsArray = [];
-    
     for (let i = 0; i < pos.count; i++) {
-      const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-      // Generate noise based on position
-      const n = noise3D(v.x * 0.6, v.y * 0.6, v.z * 0.6);
-      const detailNoise = noise3D(v.x * 2, v.y * 2, v.z * 2) * 0.2;
-      const elevation = n + detailNoise;
-      
-      elevationsArray.push(elevation);
-      
-      // Deform vertex outward
-      v.add(v.clone().normalize().multiplyScalar(elevation * 0.15));
-      pos.setXYZ(i, v.x, v.y, v.z);
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      pos.setY(i, noise2D(x, z));
     }
-    
     geo.computeVertexNormals();
-    return { geometry: geo, elevations: elevationsArray };
-  }, []); // Only runs once per mount
+    return geo;
+  }, []);
 
-  // Update vertex colors dynamically based on level and theme
-  useEffect(() => {
-    if (!geometry) return;
-    const colors = [];
+  // Generate Building Layout
+  const layout = useMemo(() => {
+    const points: { id: number, x: number, z: number, y: number, type: 'solar' | 'dome' | 'tower' | 'megatower' }[] = [];
     
-    for (let i = 0; i < elevations.length; i++) {
-      const elevation = elevations[i];
-      let color = currentTheme.rock.clone();
+    for (let i = 0; i < buildingCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.pow(Math.random(), 1.5) * colonyRadius; 
+      
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = noise2D(x, z);
 
-      if (isLevel4) {
-        if (elevation > 0.1) color = currentTheme.life.clone();
-        else color = currentTheme.soil.clone();
-      } else if (isLevel3) {
-        if (elevation > 0.1) color = currentTheme.soil.clone();
-        else color = currentTheme.rock.clone();
+      let type: 'solar' | 'dome' | 'tower' | 'megatower' = 'solar';
+      
+      if (techLevel >= 2) type = Math.random() > 0.4 ? 'dome' : 'solar';
+      if (techLevel >= 3 && radius < colonyRadius * 0.7) type = Math.random() > 0.4 ? 'tower' : 'dome';
+      if (techLevel >= 4 && radius < colonyRadius * 0.5) type = Math.random() > 0.3 ? 'megatower' : 'tower';
+
+      if (radius > 2.0) {
+        points.push({ id: i, x, y, z, type });
       }
-
-      // Add a tiny bit of noise to color for texture
-      color.offsetHSL(0, 0, (elevation * 0.05));
-      colors.push(color.r, color.g, color.b);
     }
-    
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.attributes.color.needsUpdate = true;
-  }, [commits, theme, geometry, isLevel3, isLevel4, currentTheme, elevations]);
+    return points;
+  }, [buildingCount, colonyRadius, techLevel]);
+
+  // Generate Power Lines (Connecting nearby buildings)
+  const powerLines = useMemo(() => {
+    const lines: { start: THREE.Vector3, end: THREE.Vector3, length: number }[] = [];
+    layout.forEach((p1, i) => {
+      layout.forEach((p2, j) => {
+        if (i < j) {
+          const dx = p1.x - p2.x;
+          const dz = p1.z - p2.z;
+          const dist = Math.sqrt(dx*dx + dz*dz);
+          // Connect if close enough, but not too many lines
+          if (dist < 4 && Math.random() > 0.5) {
+            lines.push({
+              start: new THREE.Vector3(p1.x, p1.y, p1.z),
+              end: new THREE.Vector3(p2.x, p2.y, p2.z),
+              length: dist
+            });
+          }
+        }
+      });
+    });
+    return lines;
+  }, [layout]);
 
   return (
     <>
-      <OrbitControls enableZoom={true} autoRotate autoRotateSpeed={0.2} maxDistance={15} minDistance={3} />
+      {/* Dusty Mars Environment */}
+      <color attach="background" args={['#1a0602']} />
+      <fog attach="fog" args={['#1a0602', 10, 50]} />
       
-      {/* Cinematic Space Lighting */}
-      <ambientLight intensity={0.05} />
-      <directionalLight position={[10, 5, 5]} intensity={2.5} castShadow />
-      <directionalLight position={[-10, -5, -5]} intensity={0.5} color={currentTheme.atmosphere} />
+      {/* Camera Constraints */}
+      <OrbitControls 
+        enableZoom={true} 
+        maxDistance={50} 
+        minDistance={5} 
+        maxPolarAngle={Math.PI / 2.1} 
+        minPolarAngle={Math.PI / 6}
+        autoRotate={true}
+        autoRotateSpeed={0.5}
+      />
       
-      <Stars radius={100} depth={50} count={isLevel2 ? 10000 : 3000} factor={5} saturation={0.5} fade speed={1} />
+      {/* Cinematic Soft Lighting */}
+      {/* Hemisphere light softens pitch-black shadows by bouncing warm light from the ground */}
+      <hemisphereLight skyColor="#222222" groundColor="#4a1506" intensity={1.5} />
+      <directionalLight position={[20, 15, -10]} intensity={3.5} color="#ffb380" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0001} />
+      
+      {/* Atmospheric Martian Dust */}
+      <Sparkles count={1000} scale={60} size={2} speed={0.4} opacity={0.3} color="#ff6600" />
 
-      <group ref={planetRef}>
-        {/* Core Planet (Bumpy Terrain) */}
-        <mesh geometry={geometry} ref={meshRef} castShadow receiveShadow>
-          <meshStandardMaterial 
-            vertexColors 
-            roughness={0.9} 
-            metalness={0.1}
-            flatShading // Gives a cool low-poly/stylized crisp look, but with 128 res it looks highly detailed
-          />
-        </mesh>
+      <group>
+        {/* The Martian Surface with Analytical Grid */}
+        <mesh geometry={terrainGeo} material={matSand} receiveShadow />
+        <Grid position={[0, 0.01, 0]} args={[120, 120]} cellColor="#ff4400" sectionColor="#ff4400" fadeDistance={30} fadeStrength={1.5} cellThickness={0.5} opacity={0.2} transparent />
 
-        {/* Level 2: Glowing Atmosphere */}
-        {isLevel2 && (
-          <mesh ref={atmosphereRef}>
-            <sphereGeometry args={[2.3, 64, 64]} />
-            <meshPhongMaterial 
-              color={currentTheme.atmosphere}
-              transparent
-              opacity={0.15}
-              side={THREE.BackSide}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        )}
+        {/* ================================== */}
+        {/* GLOWING POWER LINES */}
+        {/* ================================== */}
+        {powerLines.map((line, i) => (
+          <PowerLine key={`line-${i}`} start={line.start} end={line.end} length={line.length} />
+        ))}
 
-        {/* Level 3: Oceans */}
-        {isLevel3 && (
-          <mesh ref={waterRef}>
-            {/* The radius is 2.05 to cover the deep valleys (elevation < 0) */}
-            <sphereGeometry args={[2.02, 64, 64]} />
-            <meshStandardMaterial 
-              color={currentTheme.ocean}
-              transparent
-              opacity={0.85}
-              roughness={0.1}
-              metalness={0.9}
-            />
-          </mesh>
-        )}
+        {/* ================================== */}
+        {/* THE COLONY ASSETS */}
+        {/* ================================== */}
         
-        {/* Level 4: Cities / Satellites */}
-        {isLevel4 && (
-          <group>
-             {/* Orbital Ring / Satellites to make it look highly civilized */}
-             <mesh rotation={[Math.PI / 3, 0, 0]}>
-               <torusGeometry args={[3, 0.01, 16, 100]} />
-               <meshBasicMaterial color="#ffffff" transparent opacity={0.3} />
-             </mesh>
-             <mesh rotation={[Math.PI / 3, 0, 0]} position={[3, 0, 0]}>
-               <sphereGeometry args={[0.05, 16, 16]} />
-               <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={2} />
-             </mesh>
-          </group>
-        )}
+        {/* Central Prestige Monument */}
+        <group position={[0, noise2D(0,0), 0]}>
+          <mesh position={[0, 0.4, 0]} material={matDarkMetal} castShadow>
+            <cylinderGeometry args={[2.5, 3.5, 0.8, 8]} />
+          </mesh>
+          <mesh position={[0, monumentHeight/2, 0]} material={matMetal} castShadow>
+            <cylinderGeometry args={[1, 1.5, monumentHeight, 6]} />
+          </mesh>
+          {/* Glowing core representing stars */}
+          <mesh position={[0, monumentHeight + 1.5, 0]} material={matPrestige}>
+            <octahedronGeometry args={[1.2, 0]} />
+          </mesh>
+          {/* Hologram rings if stars > 100 */}
+          {stars > 100 && <HologramRing height={monumentHeight + 1.5} />}
+        </group>
+
+        {/* Buildings */}
+        {layout.map((p) => {
+          if (p.type === 'solar') {
+            return (
+              <group key={`b-${p.id}`} position={[p.x, p.y, p.z]}>
+                <mesh position={[0, 0.25, 0]} geometry={geoStrut} material={matMetal} castShadow />
+                <mesh position={[0, 0.5, 0]} rotation={[Math.PI/6, Math.random(), 0]} geometry={geoPanel} material={matSolar} castShadow />
+              </group>
+            );
+          }
+          if (p.type === 'dome') {
+            const scale = 0.8 + Math.random() * 0.4;
+            return (
+              <group key={`b-${p.id}`} position={[p.x, p.y + scale/2, p.z]} scale={scale}>
+                {/* Geodesic Dome */}
+                <mesh geometry={geoDome} material={matGlass} castShadow />
+                {/* Wireframe overlay */}
+                <mesh geometry={geoDome} material={matWireframe} scale={1.02} />
+                {/* Base cylinder */}
+                <mesh position={[0, -0.4, 0]} material={matDarkMetal} castShadow>
+                  <cylinderGeometry args={[0.9, 0.9, 0.2, 16]} />
+                </mesh>
+              </group>
+            );
+          }
+          if (p.type === 'tower') {
+            const h = 2 + Math.random() * 2;
+            return (
+              <group key={`b-${p.id}`} position={[p.x, p.y + h/2, p.z]}>
+                <mesh material={matDarkMetal} castShadow>
+                  <boxGeometry args={[1.2, h, 1.2]} />
+                </mesh>
+                <mesh material={matGlass}>
+                  <boxGeometry args={[1.25, h * 0.9, 1.25]} />
+                </mesh>
+              </group>
+            );
+          }
+          if (p.type === 'megatower') {
+            const h = 4 + Math.random() * 3;
+            return (
+              <group key={`b-${p.id}`} position={[p.x, p.y + h/2, p.z]}>
+                <mesh material={matMetal} castShadow>
+                  <cylinderGeometry args={[1.0, 1.8, h, 8]} />
+                </mesh>
+                {/* Glowing vertical neon strips */}
+                <mesh material={matNeonCyan}>
+                  <boxGeometry args={[2.0, h * 0.8, 0.2]} />
+                </mesh>
+                <mesh material={matNeonCyan} rotation={[0, Math.PI/2, 0]}>
+                  <boxGeometry args={[2.0, h * 0.8, 0.2]} />
+                </mesh>
+              </group>
+            );
+          }
+          return null;
+        })}
       </group>
     </>
+  );
+}
+
+// ==========================================
+// ANIMATED COMPONENTS
+// ==========================================
+
+function HologramRing({ height }: { height: number }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.x = Math.PI / 2 + Math.sin(clock.elapsedTime * 2) * 0.1;
+      ringRef.current.rotation.z += 0.02;
+    }
+  });
+  return (
+    <mesh ref={ringRef} position={[0, height, 0]} rotation={[Math.PI/2, 0, 0]}>
+      <torusGeometry args={[2.5, 0.05, 16, 64]} />
+      <meshBasicMaterial color="#ffaa00" transparent opacity={0.6} />
+    </mesh>
+  );
+}
+
+function PowerLine({ start, end, length }: { start: THREE.Vector3, end: THREE.Vector3, length: number }) {
+  const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  // Lay lines flat on the ground
+  midPoint.y = noise2D(midPoint.x, midPoint.z) + 0.05; 
+  
+  // Angle to orient the line
+  const dx = end.x - start.x;
+  const dz = end.z - start.z;
+  const angle = Math.atan2(dx, dz);
+
+  return (
+    <mesh position={midPoint} rotation={[Math.PI/2, angle, 0]}>
+      <cylinderGeometry args={[0.02, 0.02, length, 4]} />
+      <meshBasicMaterial color="#ff6600" transparent opacity={0.3} />
+    </mesh>
   );
 }
