@@ -4,6 +4,10 @@ import { Canvas } from "@react-three/fiber";
 import { useState, useEffect, useMemo } from "react";
 import Planet from "@/components/Planet";
 import FileTree from "@/components/FileTree";
+import ExploreView from "@/components/ExploreView";
+import AchievementsView from "@/components/AchievementsView";
+import AnalyticsView from "@/components/AnalyticsView";
+import SettingsView from "@/components/SettingsView";
 import { createClient } from "@/utils/supabase/client";
 import { fetchGitHubStats, GitHubStats } from "@/utils/github";
 import { Globe, Trophy, BarChart3, Settings, Rocket, Search } from "lucide-react";
@@ -16,6 +20,7 @@ export default function Dashboard() {
   const [biomeId, setBiomeId] = useState('mars');
   const [fileTreeView, setFileTreeView] = useState<string | null>(null);
   const [token, setToken] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState('Overview');
   
   const supabase = createClient();
 
@@ -102,19 +107,7 @@ export default function Dashboard() {
             <span className="text-xl font-bold text-white tracking-wide">GitVerse<span className="text-xs ml-1 text-gray-400">✦</span></span>
           </div>
 
-          <div className="flex items-center gap-2 pointer-events-auto">
-            {['mars', 'cyberpunk', 'lunar'].map((b) => (
-              <button 
-                key={b}
-                onClick={() => setBiomeId(b)}
-                className={`px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider transition-all ${biomeId === b ? 'bg-orange-500 text-white' : 'bg-black/40 text-gray-400 hover:bg-black/60'}`}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-lg">
+          <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-lg pointer-events-auto">
             <div className="w-6 h-6 rounded-full bg-orange-500 overflow-hidden border border-white/20">
               {user?.user_metadata?.avatar_url && (
                 <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -140,10 +133,20 @@ export default function Dashboard() {
         <div className={`flex flex-col justify-between h-full transition-opacity duration-500 ${simulationMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           
           {/* MIDDLE SECTION: Left Panel & Right Nav */}
-          <div className="flex justify-between items-center w-full flex-1 min-h-0 my-2">
+          <div className="flex justify-between items-stretch mt-2 flex-1">
             
-            {/* LEFT PANEL */}
-            <div className="pointer-events-auto flex flex-col gap-3 w-[300px]">
+            {/* CENTRAL CONTENT AREA (For active tabs) */}
+            {activeTab !== 'Overview' && (
+              <div className="flex-1 flex overflow-hidden">
+                {activeTab === 'Explore' && <ExploreView />}
+                {activeTab === 'Achievements' && <AchievementsView stats={stats} />}
+                {activeTab === 'Analytics' && <AnalyticsView stats={stats} commits={commits} />}
+                {activeTab === 'Settings' && <SettingsView biomeId={biomeId} setBiomeId={setBiomeId} onExitSimulation={() => setSimulationMode(false)} />}
+              </div>
+            )}
+            
+            {/* LEFT SECTION */}
+            <div className={`flex flex-col gap-4 max-w-sm transition-all duration-300 ${activeTab === 'Overview' ? 'opacity-100' : 'opacity-0 pointer-events-none absolute -left-[100%]'}`}>
               
               <div>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Planet Overview</p>
@@ -197,18 +200,18 @@ export default function Dashboard() {
             </div>
 
             {/* RIGHT FLOATING NAV */}
-            <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl">
-              <NavItem icon={<Globe className="w-4 h-4" />} label="Overview" active />
-              <NavItem icon={<Search className="w-4 h-4" />} label="Explore" />
-              <NavItem icon={<Trophy className="w-4 h-4" />} label="Achievements" />
-              <NavItem icon={<BarChart3 className="w-4 h-4" />} label="Analytics" />
-              <NavItem icon={<Settings className="w-4 h-4" />} label="Settings" />
+            <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl shrink-0 h-fit">
+              <NavItem icon={<Globe className="w-4 h-4" />} label="Overview" active={activeTab === 'Overview'} onClick={() => setActiveTab('Overview')} />
+              <NavItem icon={<Search className="w-4 h-4" />} label="Explore" active={activeTab === 'Explore'} onClick={() => setActiveTab('Explore')} />
+              <NavItem icon={<Trophy className="w-4 h-4" />} label="Achievements" active={activeTab === 'Achievements'} onClick={() => setActiveTab('Achievements')} />
+              <NavItem icon={<BarChart3 className="w-4 h-4" />} label="Analytics" active={activeTab === 'Analytics'} onClick={() => setActiveTab('Analytics')} />
+              <NavItem icon={<Settings className="w-4 h-4" />} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
             </div>
 
           </div>
 
           {/* BOTTOM PANELS ROW */}
-          <div className="pointer-events-auto flex gap-4 w-full h-[140px]">
+          <div className={`pointer-events-auto flex gap-4 w-full h-[140px] transition-all duration-300 ${activeTab === 'Overview' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none absolute bottom-0 left-0'}`}>
           
           {/* Recent Activity */}
           <div className="flex-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 flex flex-col shadow-xl">
@@ -290,9 +293,9 @@ function Stat({ icon, label, value }: { icon: string, label: string, value: stri
   );
 }
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
   return (
-    <button className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${active ? 'bg-blue-600/20 text-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${active ? 'bg-blue-600/20 text-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
       {icon}
       <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
     </button>
