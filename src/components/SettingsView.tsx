@@ -1,7 +1,8 @@
-import React from 'react';
-import { Settings, LogOut, Monitor, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, LogOut, Monitor, Palette, Star } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 
 interface SettingsViewProps {
   biomeId: string;
@@ -11,6 +12,58 @@ interface SettingsViewProps {
 
 export default function SettingsView({ biomeId, setBiomeId, onExitSimulation }: SettingsViewProps) {
   const router = useRouter();
+  const [isPro, setIsPro] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+
+  const handleUpgrade = async () => {
+    setIsPaymentLoading(true);
+    try {
+      const response = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 100 }), // ₹1
+      });
+      
+      const order = await response.json();
+      
+      if (!order.id) {
+        throw new Error('Failed to create order');
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Usually public key goes here, but it's safe to expose key_id
+        amount: order.amount,
+        currency: order.currency,
+        name: 'GitVerse Pro',
+        description: 'Upgrade to GitVerse Pro Tier',
+        order_id: order.id,
+        handler: function (response: any) {
+          setIsPro(true);
+          alert('Welcome to Pro! Payment successful.');
+          // Update supabase if needed
+        },
+        prefill: {
+          name: 'GitVerse Astronaut',
+          email: 'astronaut@gitverse.com',
+          contact: '9999999999',
+        },
+        theme: {
+          color: '#f97316', // orange-500
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        alert('Payment failed: ' + response.error.description);
+      });
+      rzp.open();
+    } catch (error) {
+      console.error(error);
+      alert('Something went wrong during payment initialization.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -31,7 +84,32 @@ export default function SettingsView({ biomeId, setBiomeId, onExitSimulation }: 
       </div>
 
       <div className="max-w-3xl space-y-8">
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" />
         
+        {/* Pro Plan Upgrade */}
+        <div className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-2xl rounded-full"></div>
+          <div className="flex items-center gap-2 mb-2">
+            <Star className="w-5 h-5 text-orange-400" />
+            <h3 className="text-lg font-bold text-white">GitVerse Pro</h3>
+          </div>
+          <p className="text-xs text-gray-400 mb-6 relative z-10">Upgrade to unlock advanced 3D visualizers, premium planetary biomes, and unlimited time-travel simulation.</p>
+          
+          {isPro ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex justify-center items-center">
+              <span className="text-emerald-400 font-bold text-sm tracking-widest uppercase">Pro Access Granted 🎉</span>
+            </div>
+          ) : (
+            <button 
+              onClick={handleUpgrade}
+              disabled={isPaymentLoading}
+              className={`bg-orange-500 hover:bg-orange-600 text-white w-full rounded-xl py-3 font-bold uppercase tracking-widest text-sm transition-all shadow-[0_0_15px_rgba(249,115,22,0.4)] ${isPaymentLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isPaymentLoading ? 'Initializing Link...' : 'Upgrade for ₹1 (UPI Supported)'}
+            </button>
+          )}
+        </div>
+
         {/* Biome Selection */}
         <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
           <div className="flex items-center gap-2 mb-4">
