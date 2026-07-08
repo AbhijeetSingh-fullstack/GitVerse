@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import MarsBase from "@/components/MarsBase";
+import Planet from "@/components/Planet";
 import { createClient } from "@/utils/supabase/client";
 import { useState } from "react";
 
@@ -24,7 +24,7 @@ export default function Home() {
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 6], fov: 45 }}>
-          <MarsBase />
+          <Planet commits={0} />
         </Canvas>
       </div>
 

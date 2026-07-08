@@ -16,6 +16,7 @@
     "posthog-js": "^1.398.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "simplex-noise": "^4.0.3",
     "three": "^0.185.1"
   },
   "devDependencies": {

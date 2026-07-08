@@ -1,12 +1,13 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import MarsBase from "@/components/MarsBase";
+import Planet from "@/components/Planet";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
+  const [commits, setCommits] = useState<number>(0);
   const supabase = createClient();
 
   useEffect(() => {
@@ -17,12 +18,45 @@ export default function Dashboard() {
     getUser();
   }, [supabase.auth]);
 
+  // Determine Level for UI
+  let levelName = "Barren Rock";
+  let levelNum = 1;
+  let progress = (commits / 100) * 100;
+  
+  if (commits > 100 && commits <= 500) {
+    levelName = "Atmosphere Awakens";
+    levelNum = 2;
+    progress = ((commits - 100) / 400) * 100;
+  } else if (commits > 500 && commits <= 2000) {
+    levelName = "Oceanic World";
+    levelNum = 3;
+    progress = ((commits - 500) / 1500) * 100;
+  } else if (commits > 2000) {
+    levelName = "Civilization";
+    levelNum = 4;
+    progress = Math.min(((commits - 2000) / 3000) * 100, 100);
+  }
+
   return (
     <div className="relative w-full h-screen bg-[#0a0a0a] overflow-hidden text-white flex">
+      {/* Testing Slider (Dev Only) */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-4 rounded-xl border border-white/20 shadow-2xl flex items-center gap-4 w-96">
+        <label className="text-sm font-bold whitespace-nowrap text-orange-400">Dev Test: Commits</label>
+        <input 
+          type="range" 
+          min="0" 
+          max="3000" 
+          value={commits} 
+          onChange={(e) => setCommits(parseInt(e.target.value))}
+          className="w-full accent-orange-500"
+        />
+        <span className="font-mono">{commits}</span>
+      </div>
+
       {/* 3D Background / Interactive Canvas */}
       <div className="absolute inset-0 z-0">
         <Canvas camera={{ position: [0, 2, 8], fov: 45 }}>
-          <MarsBase />
+          <Planet commits={commits} />
         </Canvas>
       </div>
 
@@ -38,22 +72,33 @@ export default function Dashboard() {
               )}
             </div>
             <div>
-              <h2 className="font-bold text-lg leading-tight">
+              <h2 className="font-bold text-lg leading-tight truncate w-32">
                 {user?.user_metadata?.full_name || user?.user_metadata?.user_name || "Astronaut"}
               </h2>
-              <p className="text-sm text-gray-400">@{user?.user_metadata?.user_name || "github_user"}</p>
+              <p className="text-sm text-gray-400 truncate w-32">@{user?.user_metadata?.user_name || "github_user"}</p>
             </div>
           </div>
-          <button className="w-full py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm font-semibold">
-            Edit Profile
-          </button>
+          <div className="flex gap-2">
+            <button className="flex-1 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg text-sm font-semibold">
+              Edit Profile
+            </button>
+            <button 
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/';
+              }}
+              className="px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/40 transition-colors rounded-lg text-sm font-semibold"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* GitHub Stats */}
         <div className="flex flex-col gap-3">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">GitHub Stats</h3>
           <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Commits" value="1,204" />
+            <StatCard label="Commits" value={commits.toString()} />
             <StatCard label="Streak" value="12 Days" />
             <StatCard label="Followers" value="45" />
             <StatCard label="Repos" value="32" />
@@ -65,15 +110,15 @@ export default function Dashboard() {
           <h3 className="text-sm font-bold text-orange-400 uppercase tracking-wider">Civilization</h3>
           <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/30">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-sm font-medium text-orange-200">Level 4</span>
-              <span className="text-2xl font-black text-white">City</span>
+              <span className="text-sm font-medium text-orange-200">Level {levelNum}</span>
+              <span className="text-xl font-black text-white">{levelName}</span>
             </div>
             <div className="w-full bg-black/50 rounded-full h-2 mb-4">
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full" style={{ width: '70%' }}></div>
+              <div className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
             </div>
             <div className="grid grid-cols-2 gap-3 mt-2">
-              <StatCard label="Population" value="15,420" bg="bg-black/40" />
-              <StatCard label="Buildings" value="142" bg="bg-black/40" />
+              <StatCard label="Population" value={Math.floor(commits * 2.5).toString()} bg="bg-black/40" />
+              <StatCard label="Buildings" value={Math.floor(commits / 10).toString()} bg="bg-black/40" />
             </div>
           </div>
         </div>
@@ -96,7 +141,7 @@ function StatCard({ label, value, bg = "bg-white/5" }: { label: string, value: s
   return (
     <div className={`p-3 rounded-xl ${bg} border border-white/5 flex flex-col justify-center`}>
       <span className="text-xs text-gray-400 mb-1">{label}</span>
-      <span className="text-lg font-bold text-white">{value}</span>
+      <span className="text-lg font-bold text-white truncate">{value}</span>
     </div>
   );
 }
