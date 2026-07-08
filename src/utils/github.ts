@@ -44,7 +44,7 @@ export interface GitHubStats {
   heatmap: number[];
 }
 
-export async function fetchGitHubStats(username: string, providerToken?: string): Promise<GitHubStats> {
+export async function fetchGitHubStats(username: string, providerToken?: string, isPro: boolean = false): Promise<GitHubStats> {
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github.v3+json',
   };
@@ -123,7 +123,10 @@ export async function fetchGitHubStats(username: string, providerToken?: string)
     let topRepos: GitHubRepo[] = [];
     let totalStars = 0;
     try {
-      const reposRes = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=12`, { headers });
+      const reposUrl = (isPro && providerToken) 
+        ? `https://api.github.com/user/repos?type=all&sort=updated&per_page=12` 
+        : `https://api.github.com/users/${username}/repos?sort=updated&per_page=12`;
+      const reposRes = await fetch(reposUrl, { headers });
       if (reposRes.ok) {
         const reposData = await reposRes.json();
         totalStars = reposData.reduce((acc: number, repo: any) => acc + repo.stargazers_count, 0);
@@ -178,5 +181,37 @@ export async function fetchGitHubStats(username: string, providerToken?: string)
   } catch (error) {
     console.error("Error fetching GitHub stats:", error);
     return defaultStats;
+  }
+}
+
+export interface RepoFileNode {
+  path: string;
+  type: 'blob' | 'tree';
+  size?: number;
+}
+
+export async function fetchRepoTree(owner: string, repo: string, providerToken?: string): Promise<RepoFileNode[]> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/vnd.github.v3+json',
+  };
+  if (providerToken) headers['Authorization'] = `token ${providerToken}`;
+
+  try {
+    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+    if (!repoRes.ok) return [];
+    const repoData = await repoRes.json();
+    const branch = repoData.default_branch || 'main';
+
+    const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
+    if (!treeRes.ok) return [];
+    const treeData = await treeRes.json();
+    
+    return treeData.tree.map((t: any) => ({
+      path: t.path,
+      type: t.type,
+      size: t.size
+    }));
+  } catch(e) {
+    return [];
   }
 }

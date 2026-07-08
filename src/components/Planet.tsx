@@ -1,17 +1,11 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 
-// ==========================================
-// AAA CINEMATIC MATERIALS
-// ==========================================
-const matGround = new THREE.MeshStandardMaterial({ color: "#8B4513", roughness: 1.0, flatShading: true });
-const matTower = new THREE.MeshStandardMaterial({ color: "#e2e8f0", metalness: 0.2, roughness: 0.7, flatShading: true });
-const matDome = new THREE.MeshPhysicalMaterial({ color: "#a0c4ff", transmission: 0.6, opacity: 0.8, transparent: true, roughness: 0.1 });
-const matBase = new THREE.MeshStandardMaterial({ color: "#475569", roughness: 0.9 });
+import { BIOMES } from '@/config/biomes';
 
 const matNeonCyan = new THREE.MeshStandardMaterial({ color: "#000000", emissive: "#00e5ff", emissiveIntensity: 2 });
 const matNeonPurple = new THREE.MeshStandardMaterial({ color: "#000000", emissive: "#8800ff", emissiveIntensity: 2 });
@@ -24,15 +18,30 @@ const ringColors = [
 ];
 
 function noise2D(x: number, y: number) {
-  // Flatter Mars-like terrain to prevent burying buildings
-  return Math.sin(x * 0.15) * Math.cos(y * 0.15) * 0.5 + Math.sin(x * 0.05 + y * 0.05) * 1.5;
+  // Flatter Mars-like terrain with high-frequency rocky bumps
+  const base = Math.sin(x * 0.15) * Math.cos(y * 0.15) * 0.5 + Math.sin(x * 0.05 + y * 0.05) * 1.5;
+  const bumps = Math.sin(x * 0.8) * Math.cos(y * 0.8) * 0.15;
+  return base + bumps;
 }
 
-export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos = [], timeOverride }: { commits: number, repos: number, stars: number, topRepos?: any[], timeOverride?: number }) {
+export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos = [], timeOverride, biomeId = 'mars', onEnterRepo }: { commits: number, repos: number, stars: number, topRepos?: any[], timeOverride?: number, biomeId?: string, onEnterRepo?: (name: string) => void }) {
+  const biome = BIOMES[biomeId] || BIOMES.mars;
+  
+  const materials = useMemo(() => {
+    return {
+      matGround: new THREE.MeshStandardMaterial(biome.groundMat),
+      matTower: new THREE.MeshStandardMaterial(biome.towerMat),
+      matDome: new THREE.MeshPhysicalMaterial(biome.domeMat),
+      matBase: new THREE.MeshStandardMaterial(biome.baseMat),
+    };
+  }, [biome]);
+
+  const { matGround, matTower, matDome, matBase } = materials;
+  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   
   // Generate Sharp Low-Poly Terrain
   const terrainGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(300, 300, 80, 80);
+    const geo = new THREE.PlaneGeometry(300, 300, 100, 100);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
@@ -42,6 +51,20 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
     }
     geo.computeVertexNormals();
     return geo;
+  }, []);
+
+  // Generate Scattered Rocks
+  const rocks = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 75; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 5 + Math.random() * 120; // Spread across terrain
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+      const y = noise2D(x, z);
+      arr.push({ id: i, x, y, z, s: Math.random() * 0.8 + 0.2, rot: Math.random() * Math.PI });
+    }
+    return arr;
   }, []);
 
   // Generate AAA Layout mapped strictly to REAL GitHub data
@@ -68,7 +91,7 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
       points.push({ 
         id: `repo-${repo.name}`, x, y, z, 
         type: i === 0 ? 'main_tower' : 'tower', 
-        label: { name: repo.name, commits: repo.commits, ...theme }, 
+        label: { name: repo.name, commits: repo.commits, repoData: repo, ...theme }, 
         height: h 
       });
     });
@@ -98,8 +121,8 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
       hemiRef.current.intensity = 1.0;
     }
     
-    // Bright Sky Blue Background
-    const dayColor = new THREE.Color("#87CEEB"); 
+    // Dynamic Biome Sky
+    const dayColor = new THREE.Color(biome.skyColor); 
     scene.background = dayColor;
     
     // Constant emissive glow
@@ -110,7 +133,8 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
 
   return (
     <>
-      <color attach="background" args={['#87CEEB']} />
+      <color attach="background" args={[biome.skyColor]} />
+      <fog attach="fog" args={[biome.fogColor, 30, 110]} />
       
       <OrbitControls 
         enableZoom={true} 
@@ -122,14 +146,21 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
         autoRotateSpeed={0.3}
       />
       
-      <ambientLight intensity={0.6} />
-      <hemisphereLight ref={hemiRef} skyColor="#222233" groundColor="#0a0201" intensity={0.5} />
-      <directionalLight ref={sunRef} position={[50, 40, -30]} intensity={4.0} color="#ffb380" castShadow shadow-mapSize={[4096, 4096]} shadow-bias={-0.0001} />
+      <ambientLight intensity={biome.ambientLight} />
+      <hemisphereLight ref={hemiRef} skyColor={biome.skyColor} groundColor="#0a0201" intensity={0.5} />
+      <directionalLight ref={sunRef} position={[50, 40, -30]} intensity={4.0} color={biome.sunColor} castShadow shadow-mapSize={[4096, 4096]} shadow-bias={-0.0001} />
       <directionalLight position={[-30, 20, 40]} intensity={1.0} color="#6688ff" />
 
       <group>
         {/* Terrain */}
         <mesh geometry={terrainGeo} material={matGround} receiveShadow />
+
+        {/* Scattered Rocks */}
+        {rocks.map(r => (
+          <mesh key={`rock-${r.id}`} position={[r.x, r.y, r.z]} rotation={[Math.random(), r.rot, Math.random()]} scale={[r.s, r.s, r.s]} material={matGround} castShadow receiveShadow>
+            <dodecahedronGeometry args={[1, 0]} />
+          </mesh>
+        ))}
 
         {/* ================================== */}
         {/* GREEBLED ARCOLOGY TOWERS */}
@@ -138,14 +169,26 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
         {layout.map((p) => {
           if (p.type === 'dome') {
             return (
-              <group key={p.id} position={[p.x, p.y, p.z]}>
+              <group key={p.id} position={[p.x, p.y - 0.2, p.z]}>
                 <mesh material={matBase} position={[0, -0.2, 0]} receiveShadow>
                   <cylinderGeometry args={[2, 2.5, 1, 16]} />
                 </mesh>
                 {/* Base Sphere */}
-                <mesh position={[0, 0.5, 0]} material={matTower} receiveShadow castShadow>
-                  <sphereGeometry args={[1.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-                </mesh>
+                <mesh
+                  castShadow
+                  receiveShadow
+                  position={[0, p.h / 2 + 0.2, 0]}
+                  geometry={new THREE.CylinderGeometry(1.2, 1.2, p.h, 8)}
+                  material={matTower}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRepo(p.id === selectedRepo ? null : p.id);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (onEnterRepo) onEnterRepo(p.label.name);
+                  }}
+                />
                 {/* Glowing Core */}
                 <mesh position={[0, 0.5, 0]}>
                   <boxGeometry args={[0.8, 0.8, 0.8]} />
@@ -161,12 +204,32 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
             const segments = Math.floor(h / 3);
             
             return (
-              <group key={`b-${p.id}`} position={[p.x, p.y + 0.5, p.z]}>
+              <group 
+                key={`b-${p.id}`} 
+                position={[p.x, p.y - 0.5, p.z]}
+                onPointerMissed={() => setSelectedRepo(null)}
+              >
                 
                 {/* Base Sphere */}
                 <mesh position={[0, 0.5, 0]} material={matTower} receiveShadow castShadow>
                   <sphereGeometry args={[3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
                 </mesh>
+
+                <mesh
+                  castShadow
+                  receiveShadow
+                  position={[0, h / 2 + 1, 0]}
+                  geometry={new THREE.BoxGeometry(2, h, 2)}
+                  material={matTower}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRepo(p.id === selectedRepo ? null : p.id);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (onEnterRepo) onEnterRepo(p.label.name);
+                  }}
+                />
 
                 {/* Tapering Stacked Cylinders */}
                 {Array.from({ length: segments }).map((_, segIdx) => {
@@ -208,14 +271,42 @@ export default function MarsColony({ commits = 0, repos = 0, stars = 0, topRepos
                 <Html 
                   position={[0, 1 + segments * 3 + 5, 0]} 
                   center 
-                  className="pointer-events-none"
+                  className={selectedRepo === p.id ? "pointer-events-auto" : "pointer-events-none"}
                   distanceFactor={20}
+                  zIndexRange={[100, 0]}
                 >
-                  <div className="flex flex-col items-center animate-pulse-slow">
-                    <div className={`px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border-t-2 ${p.label.border} shadow-lg shadow-black/50 flex flex-col items-center whitespace-nowrap`}>
-                      <span className={`text-[10px] font-bold ${p.label.color} leading-none mb-0.5`}>{p.label.name}</span>
-                      <span className="text-[8px] text-gray-300 font-medium">{p.label.commits} commits</span>
-                    </div>
+                  <div className="flex flex-col items-center cursor-pointer">
+                    {selectedRepo === p.id ? (
+                      <div className={`p-4 rounded-xl bg-black/80 backdrop-blur-xl border-t-4 ${p.label.border} shadow-2xl shadow-black/80 flex flex-col gap-3 min-w-[220px]`}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className={`text-sm font-bold ${p.label.color}`}>{p.label.name}</span>
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedRepo(null); }} className="text-gray-400 hover:text-white px-2 py-0.5 rounded bg-white/10 transition-colors">✕</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="bg-white/5 p-2 rounded flex flex-col">
+                            <span className="text-gray-500 font-bold uppercase mb-1">Commits</span>
+                            <span className="text-white font-mono text-xs">{p.label.commits}</span>
+                          </div>
+                          <div className="bg-white/5 p-2 rounded flex flex-col">
+                            <span className="text-gray-500 font-bold uppercase mb-1">Size</span>
+                            <span className="text-white font-mono text-xs">{p.label.repoData.size} KB</span>
+                          </div>
+                          <div className="bg-white/5 p-2 rounded flex flex-col">
+                            <span className="text-gray-500 font-bold uppercase mb-1">Language</span>
+                            <span className="text-white font-mono text-xs text-blue-400">{p.label.repoData.language || 'Unknown'}</span>
+                          </div>
+                          <div className="bg-white/5 p-2 rounded flex flex-col">
+                            <span className="text-gray-500 font-bold uppercase mb-1">Created</span>
+                            <span className="text-white font-mono text-xs">{new Date(p.label.repoData.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border-t-2 ${p.label.border} shadow-lg shadow-black/50 flex flex-col items-center whitespace-nowrap animate-pulse-slow`}>
+                        <span className={`text-[10px] font-bold ${p.label.color} leading-none mb-0.5`}>{p.label.name}</span>
+                        <span className="text-[8px] text-gray-300 font-medium">{p.label.commits} commits</span>
+                      </div>
+                    )}
                   </div>
                 </Html>
 

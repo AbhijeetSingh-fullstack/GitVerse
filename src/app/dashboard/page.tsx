@@ -1,8 +1,9 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
+import { useState, useEffect, useMemo } from "react";
 import Planet from "@/components/Planet";
-import { useState, useEffect } from "react";
+import FileTree from "@/components/FileTree";
 import { createClient } from "@/utils/supabase/client";
 import { fetchGitHubStats, GitHubStats } from "@/utils/github";
 import { Globe, Trophy, BarChart3, Settings, Rocket, Search } from "lucide-react";
@@ -12,6 +13,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState<GitHubStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [simulationMode, setSimulationMode] = useState(false);
+  const [biomeId, setBiomeId] = useState('mars');
+  const [fileTreeView, setFileTreeView] = useState<string | null>(null);
+  const [token, setToken] = useState<string | undefined>(undefined);
   
   const supabase = createClient();
 
@@ -23,8 +27,9 @@ export default function Dashboard() {
       if (session?.user) {
         const username = session.user.user_metadata?.user_name;
         const providerToken = session.provider_token; 
+        if (providerToken) setToken(providerToken);
         if (username) {
-          const githubData = await fetchGitHubStats(username, providerToken);
+          const githubData = await fetchGitHubStats(username, providerToken, true);
           setStats(githubData);
         }
       }
@@ -52,24 +57,61 @@ export default function Dashboard() {
       
       {/* 3D Background Canvas */}
       <div className="absolute inset-0 z-0">
-        <Canvas camera={{ position: [0, 20, 60], fov: 45 }}>
-          <Planet 
-            commits={commits} 
-            repos={reposCount} 
-            stars={stats?.stars || 0} 
-            topRepos={stats?.topRepos || []} 
-          />
+        <Canvas shadows camera={{ position: [0, 20, 60], fov: 45 }}>
+          {fileTreeView ? (
+            <FileTree 
+              owner={user?.user_metadata?.user_name}
+              repo={fileTreeView}
+              token={token}
+              onExit={() => setFileTreeView(null)}
+            />
+          ) : (
+            <Planet 
+              commits={commits} 
+              repos={reposCount} 
+              stars={stats?.stars || 0} 
+              topRepos={stats?.topRepos || []} 
+              biomeId={biomeId}
+              onEnterRepo={setFileTreeView}
+            />
+          )}
         </Canvas>
       </div>
 
+      {fileTreeView && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-2">
+          <div className="bg-black/80 text-white px-4 py-2 rounded-xl border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+            <span className="font-bold text-blue-400">/{fileTreeView}</span> Data-Core
+          </div>
+          <button 
+            onClick={() => setFileTreeView(null)}
+            className="px-4 py-1 text-xs font-bold uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+          >
+            Exit System
+          </button>
+        </div>
+      )}
+
       {/* OVERLAY UI */}
-      <div className="absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between">
+      <div className={`absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between transition-opacity duration-500 ${fileTreeView ? 'opacity-0' : 'opacity-100'}`}>
         
         {/* TOP HEADER */}
         <header className="flex justify-between items-start pointer-events-auto">
           <div className="flex items-center gap-2">
             <Rocket className="text-white w-6 h-6" />
             <span className="text-xl font-bold text-white tracking-wide">GitVerse<span className="text-xs ml-1 text-gray-400">✦</span></span>
+          </div>
+
+          <div className="flex items-center gap-2 pointer-events-auto">
+            {['mars', 'cyberpunk', 'lunar'].map((b) => (
+              <button 
+                key={b}
+                onClick={() => setBiomeId(b)}
+                className={`px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider transition-all ${biomeId === b ? 'bg-orange-500 text-white' : 'bg-black/40 text-gray-400 hover:bg-black/60'}`}
+              >
+                {b}
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-lg">
@@ -85,7 +127,7 @@ export default function Dashboard() {
 
         {/* MAIN UI OVERLAY - Collapsible */}
         {simulationMode && (
-          <div className="absolute top-20 right-6 z-20">
+          <div className="absolute top-20 right-6 z-20 pointer-events-auto">
             <button 
               onClick={() => setSimulationMode(false)}
               className="bg-red-500/80 hover:bg-red-500 text-white px-4 py-2 rounded-lg backdrop-blur-md font-bold text-xs uppercase tracking-widest shadow-xl transition-all"

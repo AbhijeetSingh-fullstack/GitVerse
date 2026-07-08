@@ -15,6 +15,7 @@ export default function Home() {
       provider: 'github',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'repo read:user'
       }
     });
   };
