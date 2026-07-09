@@ -23,6 +23,10 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [selectedPlanetInfo, setSelectedPlanetInfo] = useState<any>(null);
   
+  // Adventure Mode State hoisted to root
+  const [adventureMode, setAdventureMode] = useState(false);
+  const [triggerExit, setTriggerExit] = useState(false);
+  
   const supabase = createClient();
 
   useEffect(() => {
@@ -69,6 +73,12 @@ export default function Dashboard() {
               repoData={surfaceViewRepo} 
               token={token} 
               owner={user?.user_metadata?.user_name} 
+              adventureMode={adventureMode}
+              triggerExit={triggerExit}
+              onExitComplete={() => {
+                setSurfaceViewRepo(null);
+                setTriggerExit(false);
+              }}
             />
           ) : (
             <Planet 
@@ -79,7 +89,10 @@ export default function Dashboard() {
               biomeId={biomeId}
               onEnterRepo={(repoName) => {
                 const repo = stats?.topRepos?.find(r => r.name === repoName);
-                if (repo) setSurfaceViewRepo(repo);
+                if (repo) {
+                  setSurfaceViewRepo(repo);
+                  setTriggerExit(false);
+                }
               }}
               onSelectRepo={setSelectedPlanetInfo}
             />
@@ -87,17 +100,28 @@ export default function Dashboard() {
         </Canvas>
       </div>
 
-      {surfaceViewRepo && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-2">
+      {surfaceViewRepo && !triggerExit && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-3">
           <div className="bg-black/80 text-white px-4 py-2 rounded-xl border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
             <span className="font-bold text-blue-400">/{surfaceViewRepo.name}</span> Surface View
           </div>
-          <button 
-            onClick={() => setSurfaceViewRepo(null)}
-            className="px-4 py-1 text-xs font-bold uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
-          >
-            Return to Space
-          </button>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => {
+                setTriggerExit(true);
+                setAdventureMode(false);
+              }}
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+            >
+              Return to Space
+            </button>
+            <button 
+              onClick={() => setAdventureMode(!adventureMode)}
+              className="px-6 py-2 text-xs font-bold uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white rounded-full transition-all shadow-xl border border-red-400 animate-pulse"
+            >
+              {adventureMode ? "Exit Flight Mode" : "✈️ Adventure Mode"}
+            </button>
+          </div>
         </div>
       )}
 
