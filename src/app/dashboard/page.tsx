@@ -3,7 +3,7 @@
 import { Canvas } from "@react-three/fiber";
 import { useState, useEffect, useMemo } from "react";
 import Planet from "@/components/Planet";
-import FileTree from "@/components/FileTree";
+import PlanetSurface from "@/components/PlanetSurface";
 import ExploreView from "@/components/ExploreView";
 import AchievementsView from "@/components/AchievementsView";
 import AnalyticsView from "@/components/AnalyticsView";
@@ -18,9 +18,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [simulationMode, setSimulationMode] = useState(false);
   const [biomeId, setBiomeId] = useState('mars');
-  const [fileTreeView, setFileTreeView] = useState<string | null>(null);
+  const [surfaceViewRepo, setSurfaceViewRepo] = useState<any>(null);
   const [token, setToken] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState('Overview');
+  const [selectedPlanetInfo, setSelectedPlanetInfo] = useState<any>(null);
   
   const supabase = createClient();
 
@@ -63,12 +64,11 @@ export default function Dashboard() {
       {/* 3D Background Canvas */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows camera={{ position: [0, 20, 60], fov: 45 }}>
-          {fileTreeView ? (
-            <FileTree 
-              owner={user?.user_metadata?.user_name}
-              repo={fileTreeView}
-              token={token}
-              onExit={() => setFileTreeView(null)}
+          {surfaceViewRepo ? (
+            <PlanetSurface 
+              repoData={surfaceViewRepo} 
+              token={token} 
+              owner={user?.user_metadata?.user_name} 
             />
           ) : (
             <Planet 
@@ -77,28 +77,32 @@ export default function Dashboard() {
               stars={stats?.stars || 0} 
               topRepos={stats?.topRepos || []} 
               biomeId={biomeId}
-              onEnterRepo={setFileTreeView}
+              onEnterRepo={(repoName) => {
+                const repo = stats?.topRepos?.find(r => r.name === repoName);
+                if (repo) setSurfaceViewRepo(repo);
+              }}
+              onSelectRepo={setSelectedPlanetInfo}
             />
           )}
         </Canvas>
       </div>
 
-      {fileTreeView && (
+      {surfaceViewRepo && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-2">
           <div className="bg-black/80 text-white px-4 py-2 rounded-xl border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-            <span className="font-bold text-blue-400">/{fileTreeView}</span> Data-Core
+            <span className="font-bold text-blue-400">/{surfaceViewRepo.name}</span> Surface View
           </div>
           <button 
-            onClick={() => setFileTreeView(null)}
+            onClick={() => setSurfaceViewRepo(null)}
             className="px-4 py-1 text-xs font-bold uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
           >
-            Exit System
+            Return to Space
           </button>
         </div>
       )}
 
       {/* OVERLAY UI */}
-      <div className={`absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between transition-opacity duration-500 ${fileTreeView ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`absolute inset-0 z-10 pointer-events-none p-6 flex flex-col justify-between transition-opacity duration-500 ${surfaceViewRepo ? 'opacity-0' : 'opacity-100'}`}>
         
         {/* TOP HEADER */}
         <header className="flex justify-between items-start pointer-events-auto">
@@ -146,7 +150,7 @@ export default function Dashboard() {
             )}
             
             {/* LEFT SECTION */}
-            <div className={`flex flex-col gap-4 max-w-sm transition-all duration-300 ${activeTab === 'Overview' ? 'opacity-100' : 'opacity-0 pointer-events-none absolute -left-[100%]'}`}>
+            <div className={`flex flex-col gap-4 max-w-sm transition-all duration-300 ${activeTab === 'Overview' && !selectedPlanetInfo ? 'opacity-100' : 'opacity-0 pointer-events-none absolute -left-[100%]'}`}>
               
               <div>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Planet Overview</p>
@@ -199,13 +203,57 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* RIGHT FLOATING NAV */}
-            <div className="pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl shrink-0 h-fit">
+            {/* RIGHT FLOATING NAV (Hide when planet is selected) */}
+            <div className={`pointer-events-auto bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl shrink-0 h-fit transition-all duration-300 ${selectedPlanetInfo ? 'opacity-0 translate-x-10 pointer-events-none' : 'opacity-100 translate-x-0'}`}>
               <NavItem icon={<Globe className="w-4 h-4" />} label="Overview" active={activeTab === 'Overview'} onClick={() => setActiveTab('Overview')} />
               <NavItem icon={<Search className="w-4 h-4" />} label="Explore" active={activeTab === 'Explore'} onClick={() => setActiveTab('Explore')} />
               <NavItem icon={<Trophy className="w-4 h-4" />} label="Achievements" active={activeTab === 'Achievements'} onClick={() => setActiveTab('Achievements')} />
               <NavItem icon={<BarChart3 className="w-4 h-4" />} label="Analytics" active={activeTab === 'Analytics'} onClick={() => setActiveTab('Analytics')} />
               <NavItem icon={<Settings className="w-4 h-4" />} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
+            </div>
+
+            {/* PLANET INFO SIDE PANEL */}
+            <div className={`absolute top-0 right-0 w-80 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-500 transform pointer-events-auto ${selectedPlanetInfo ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0 pointer-events-none'}`}>
+              {selectedPlanetInfo && (
+                <div className="p-5 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Planet Data</p>
+                      <h2 className={`text-xl font-bold ${selectedPlanetInfo.color}`}>{selectedPlanetInfo.name}</h2>
+                    </div>
+                    <button onClick={() => setSelectedPlanetInfo(null)} className="text-gray-400 hover:text-white bg-white/10 p-1.5 rounded-lg transition-colors">✕</button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase mb-1">Population (Commits)</p>
+                      <p className="text-lg font-mono text-white">{selectedPlanetInfo.commits}</p>
+                    </div>
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase mb-1">Planet Size</p>
+                      <p className="text-lg font-mono text-white">{selectedPlanetInfo.repoData.size} KB</p>
+                    </div>
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase mb-1">Atmosphere (Lang)</p>
+                      <p className="text-sm font-bold text-blue-400 mt-1">{selectedPlanetInfo.repoData.language || 'Unknown'}</p>
+                    </div>
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase mb-1">Discovered</p>
+                      <p className="text-sm font-medium text-white mt-1">{new Date(selectedPlanetInfo.repoData.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setSurfaceViewRepo(selectedPlanetInfo.repoData);
+                      setSelectedPlanetInfo(null);
+                    }}
+                    className={`mt-2 w-full py-3 rounded-xl text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all ${selectedPlanetInfo.commits >= 30 ? 'bg-green-400 hover:bg-green-300 shadow-green-500/50' : selectedPlanetInfo.commits >= 10 ? 'bg-blue-400 hover:bg-blue-300 shadow-blue-500/50' : 'bg-gray-400 hover:bg-gray-300'}`}
+                  >
+                    See Life
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>
