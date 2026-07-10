@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart3, TrendingUp, GitCommit } from 'lucide-react';
+import { BarChart3, TrendingUp, GitCommit, Star } from 'lucide-react';
 import { GitHubStats } from '@/utils/github';
 
 interface AnalyticsViewProps {

@@ -529,7 +529,7 @@ export default function PlanetSurface({
     let active = true;
     const load = async () => {
       setLoading(true);
-      const data = await fetchRepoTree(owner || repoData?.owner?.login, repoData.name, token);
+      const data = await fetchRepoTree(owner || repoData?.owner?.login, repoData.name, token, repoData.default_branch);
       if (active) {
         setNodes(data.slice(0, 400));
         setLoading(false);
@@ -549,14 +549,24 @@ export default function PlanetSurface({
     return hash;
   };
 
-  const { houses, colonies, roads, poles, trees, terrainColor } = useMemo(() => {
-    if (!nodes.length) return { houses: [], colonies: [], roads: [], poles: [], trees: [], terrainColor: "#65963c" };
-    
+  const terrainColor = useMemo(() => {
     const hash = Math.abs(hashCode(repoData?.name || ""));
-    const hue = hash % 360;
+    let hue = hash % 360;
+    
+    // Ensure habitable planets (with plants) use earth/green tones
+    if (isHabitable) {
+      hue = 80 + (hash % 60); // 80 to 140 (greens)
+    }
+    
     const saturation = isHabitable ? 40 + (hash % 30) : 20 + (hash % 20);
     const lightness = isHabitable ? 40 + (hash % 20) : 30 + (hash % 20);
-    const terrainColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }, [repoData?.name, isHabitable]);
+
+  const { houses, colonies, roads, poles, trees } = useMemo(() => {
+    if (!nodes.length) return { houses: [], colonies: [], roads: [], poles: [], trees: [] };
+    
+    const hash = Math.abs(hashCode(repoData?.name || ""));
     
     const hList: any[] = [];
     const cList: any[] = [];
@@ -717,7 +727,7 @@ export default function PlanetSurface({
     return { houses: hList, colonies: cList, roads: rList, poles: pList, trees: tList, terrainColor };
   }, [nodes, isHabitable, repoData]);
 
-  const matTerrain = useMemo(() => new THREE.MeshStandardMaterial({ color: terrainColor, roughness: 1.0 }), [terrainColor]);
+  const matTerrain = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 1.0, vertexColors: true }), []);
   const matPavement = useMemo(() => new THREE.MeshStandardMaterial({ color: "#9ca3af", roughness: 0.8 }), []);
   const matRoad = useMemo(() => new THREE.MeshStandardMaterial({ color: "#4b5563", roughness: 0.9 }), []);
   
@@ -738,10 +748,52 @@ export default function PlanetSurface({
   const matPole = useMemo(() => new THREE.MeshStandardMaterial({ color: "#4b3621", roughness: 0.9 }), []);
 
   const terrainGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(1200, 1200, 10, 10);
+    const geo = new THREE.PlaneGeometry(2000, 2000, 128, 128);
     geo.rotateX(-Math.PI / 2);
+    
+    const pos = geo.attributes.position;
+    const colors = [];
+    const baseColor = new THREE.Color(terrainColor);
+    const mountainColor = new THREE.Color("#4a4a4a"); // Grey rock
+    const snowColor = new THREE.Color("#ffffff"); // Snow peak
+    
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const dist = Math.sqrt(x * x + z * z);
+      let y = 0;
+      
+      // Keep center completely flat for city, start rising after radius 400
+      if (dist > 400) {
+        const t = Math.min((dist - 400) / 600, 1.0); // 0 to 1
+        
+        // Procedural noise approximation
+        const noiseX = Math.sin(x * 0.02) * Math.cos(z * 0.02) * 30;
+        const noiseZ = Math.sin(x * 0.05 + z * 0.03) * 15;
+        
+        // Exponential rise for mountains
+        y = Math.pow(t, 2.5) * 400 + (noiseX + noiseZ) * t;
+        
+        // Add general micro-noise for a rugged look on the mountains
+        y += (Math.random() - 0.5) * Math.min(t * 10, 4); 
+      }
+      
+      pos.setY(i, y);
+
+      // Vertex color mapping based on elevation
+      let finalColor = baseColor.clone();
+      if (y > 200) {
+        finalColor.lerp(snowColor, Math.min((y - 200) / 100, 1.0));
+      } else if (y > 30) {
+        finalColor.lerp(mountainColor, Math.min((y - 30) / 170, 1.0));
+      }
+      colors.push(finalColor.r, finalColor.g, finalColor.b);
+    }
+    
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
     return geo;
-  }, []);
+  }, [terrainColor]);
 
   const showCity = !loading && rocketLanded;
   const padPosition = useMemo(() => new THREE.Vector3(120, 0, 0), []);
@@ -749,7 +801,7 @@ export default function PlanetSurface({
   return (
     <>
       <Sky distance={450000} sunPosition={[100, 60, 20]} inclination={0.1} azimuth={0.25} />
-      <fog attach="fog" args={["#bde0fe", 150, 800]} />
+      <fog attach="fog" args={["#bde0fe", 300, 1000]} />
 
       <ambientLight intensity={0.6} />
       <directionalLight position={[150, 200, 100]} intensity={1.8} castShadow shadow-mapSize={[2048, 2048]} />

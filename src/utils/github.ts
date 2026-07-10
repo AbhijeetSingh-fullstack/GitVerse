@@ -137,7 +137,9 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
           commits: 0,
           language: repo.language || 'Unknown',
           created_at: repo.created_at,
-          updated_at: repo.updated_at
+          updated_at: repo.updated_at,
+          default_branch: repo.default_branch || 'main',
+          owner: { login: repo.owner?.login || username }
         }));
 
         // Fetch exact commit counts for top repos in parallel
@@ -190,19 +192,22 @@ export interface RepoFileNode {
   size?: number;
 }
 
-export async function fetchRepoTree(owner: string, repo: string, providerToken?: string): Promise<RepoFileNode[]> {
+export async function fetchRepoTree(owner: string, repo: string, providerToken?: string, defaultBranch?: string): Promise<RepoFileNode[]> {
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github.v3+json',
   };
   if (providerToken) headers['Authorization'] = `token ${providerToken}`;
 
   try {
-    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
-    if (!repoRes.ok) return [];
-    const repoData = await repoRes.json();
-    const branch = repoData.default_branch || 'main';
+    let branch = defaultBranch;
+    if (!branch) {
+      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers, next: { revalidate: 3600 } });
+      if (!repoRes.ok) return [];
+      const repoData = await repoRes.json();
+      branch = repoData.default_branch || 'main';
+    }
 
-    const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
+    const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers, next: { revalidate: 3600 } });
     if (!treeRes.ok) return [];
     const treeData = await treeRes.json();
     

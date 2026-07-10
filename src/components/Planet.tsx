@@ -54,17 +54,17 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
       if (type === "barren") {
         material = new THREE.MeshStandardMaterial({ 
           color, 
-          roughness: 1.0, 
-          metalness: 0.2, 
+          roughness: 0.8, 
+          metalness: 0.3, 
         });
       } else {
         material = new THREE.MeshPhysicalMaterial({
           color,
           roughness: 0.4,
-          metalness: 0.1,
-          clearcoat: 1.0,
-          clearcoatRoughness: 0.1,
-          reflectivity: 1.0,
+          metalness: 0.2,
+          clearcoat: 0.5,
+          clearcoatRoughness: 0.2,
+          reflectivity: 0.5,
         });
       }
 
@@ -105,7 +105,9 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
       {/* Deep Space Background */}
       <color attach="background" args={["#020205"]} />
       
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+      <Stars radius={150} depth={100} count={8000} factor={6} saturation={0.5} fade speed={1.5} />
+      
+      <DeepSpaceVisuals />
       
       <OrbitControls 
         enableZoom={true} 
@@ -115,10 +117,12 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
         minPolarAngle={Math.PI / 6}
       />
       
-      {/* Lighting */}
-      <ambientLight intensity={0.1} />
+      {/* Improved Lighting to prevent clay-ball look */}
+      <ambientLight intensity={0.25} />
+      {/* Soft blueish hemisphere light to simulate starlight from empty space filling in shadows */}
+      <hemisphereLight skyColor="#4466ff" groundColor="#111122" intensity={0.4} />
       {/* PointLight at the center (the star) */}
-      <pointLight position={[0, 0, 0]} intensity={2000} distance={200} decay={2} color="#ffffff" />
+      <pointLight position={[0, 0, 0]} intensity={2500} distance={250} decay={2} color="#ffffff" />
 
       <group>
         {/* Central Star (User) */}
@@ -129,17 +133,17 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
         {/* Star Glow 1 */}
         <mesh scale={[1.1, 1.1, 1.1]}>
           <sphereGeometry args={[5, 32, 32]} />
-          <meshBasicMaterial color="#ffaa00" transparent opacity={0.6} blending={THREE.AdditiveBlending} />
+          <meshBasicMaterial color="#ffaa00" transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
         {/* Star Glow 2 */}
         <mesh scale={[1.3, 1.3, 1.3]}>
           <sphereGeometry args={[5, 32, 32]} />
-          <meshBasicMaterial color="#ff5500" transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          <meshBasicMaterial color="#ff5500" transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
         {/* Star Glow 3 (Outer Corona) */}
         <mesh scale={[2.0, 2.0, 2.0]}>
           <sphereGeometry args={[5, 32, 32]} />
-          <meshBasicMaterial color="#ff2200" transparent opacity={0.1} blending={THREE.AdditiveBlending} />
+          <meshBasicMaterial color="#ff2200" transparent opacity={0.1} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
 
         {/* Orbiting Planets */}
@@ -248,5 +252,12 @@ function MoonMesh({ moon, parentSize }: { moon: any, parentSize: number }) {
       <sphereGeometry args={[moon.size, 16, 16]} />
       <primitive object={material} attach="material" />
     </mesh>
+  );
+}
+
+function DeepSpaceVisuals() {
+  return (
+    <group>
+    </group>
   );
 }
