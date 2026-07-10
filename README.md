@@ -1,6 +1,6 @@
 # 🌌 GitVerse
 
-![GitVerse Banner](./public/GitVerse.png)
+<img src="./public/GitVerse.png" alt="GitVerse Banner" width="150" />
 
 > **Transform your GitHub history into a thriving, living 3D planetary system.**
 
@@ -95,3 +95,8 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 
 ## 📝 License
 This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
+
+---
+
+## 📬 Contact
+For any inquiries or feedback, please reach out to: **abhijeet200508@gmail.com**
