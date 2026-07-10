@@ -9,7 +9,7 @@ export interface GitHubRepo {
   updated_at: string;
 }
 
-async function fetchCommitCount(username: string, repoName: string, headers: any): Promise<number> {
+async function fetchCommitCount(username: string, repoName: string, headers: Record<string, string>): Promise<number> {
   try {
     const res = await fetch(`https://api.github.com/repos/${username}/${repoName}/commits?per_page=1`, { headers });
     if (!res.ok) return 0;
@@ -22,7 +22,7 @@ async function fetchCommitCount(username: string, repoName: string, headers: any
     }
     const data = await res.json();
     return Array.isArray(data) ? data.length : 0;
-  } catch(e) {
+  } catch (_e) {
     return 0;
   }
 }
@@ -81,7 +81,7 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
         // Extract heatmap levels and dates
         const levelMatches = html.matchAll(/data-date="([^"]+)" data-level="([0-4])/g);
         
-        let days: { date: string, level: number }[] = [];
+        const days: { date: string, level: number }[] = [];
         for (const m of levelMatches) {
           days.push({ date: m[1], level: parseInt(m[2], 10) });
         }
@@ -103,8 +103,8 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
           heatmapLevels = [...pad, ...heatmapLevels];
         }
       }
-    } catch (e) {
-      console.warn("Could not fetch exact contributions from profile", e);
+    } catch (_e) {
+      console.warn("Could not fetch exact contributions from profile");
     }
 
     if (exactCommits === 0) {
@@ -116,7 +116,7 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
           const searchData = await searchRes.json();
           exactCommits = searchData.total_count || 0;
         }
-      } catch (e) {}
+      } catch (_e) {}
     }
 
     // 3. Fetch Top Repositories & Stars
@@ -129,9 +129,9 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
       const reposRes = await fetch(reposUrl, { headers });
       if (reposRes.ok) {
         const reposData = await reposRes.json();
-        totalStars = reposData.reduce((acc: number, repo: any) => acc + repo.stargazers_count, 0);
+        totalStars = reposData.reduce((acc: number, repo: { stargazers_count: number }) => acc + repo.stargazers_count, 0);
         
-        const mappedRepos = reposData.map((repo: any) => ({
+        const mappedRepos = reposData.map((repo: { name: string; size: number; language: string; created_at: string; updated_at: string; default_branch: string; owner: { login: string } }) => ({
           name: repo.name,
           size: repo.size,
           commits: 0,
@@ -143,14 +143,14 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
         }));
 
         // Fetch exact commit counts for top repos in parallel
-        await Promise.all(mappedRepos.map(async (repo: any) => {
+        await Promise.all(mappedRepos.map(async (repo: { name: string; commits: number }) => {
           repo.commits = await fetchCommitCount(username, repo.name, headers);
         }));
 
         topRepos = mappedRepos;
       }
-    } catch (e) {
-      console.warn("Could not fetch repos", e);
+    } catch (_e) {
+      console.warn("Could not fetch repos");
     }
 
     // 4. Fetch Recent Activity Events
@@ -159,14 +159,14 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
       const eventsRes = await fetch(`https://api.github.com/users/${username}/events?per_page=10`, { headers });
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
-        activity = eventsData.map((ev: any) => ({
+        activity = eventsData.map((ev: { type: string; repo: { name: string }; created_at: string }) => ({
           type: ev.type,
           repo: ev.repo?.name?.split('/')[1] || ev.repo?.name || "Unknown",
           created_at: ev.created_at
         }));
       }
-    } catch (e) {
-      console.warn("Could not fetch events", e);
+    } catch (_e) {
+      console.warn("Could not fetch events");
     }
 
     return {
@@ -211,12 +211,12 @@ export async function fetchRepoTree(owner: string, repo: string, providerToken?:
     if (!treeRes.ok) return [];
     const treeData = await treeRes.json();
     
-    return treeData.tree.map((t: any) => ({
+    return treeData.tree.map((t: { path: string; type: 'blob' | 'tree'; size?: number }) => ({
       path: t.path,
       type: t.type,
       size: t.size
     }));
-  } catch(e) {
+  } catch (_e) {
     return [];
   }
 }
