@@ -94,9 +94,12 @@ export default function Home() {
           {/* Main Title */}
           <h1 className="text-7xl lg:text-8xl font-black tracking-tighter mb-6 leading-[1.1]">
             <span className="block text-white drop-shadow-lg">Build Your</span>
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-500 to-purple-600 animate-gradient-x drop-shadow-xl">
-              GitVerse
-            </span>
+            <div className="flex items-center gap-4 lg:gap-6 mt-2">
+              <img src="/GitVerse.png" alt="GitVerse Logo" className="w-20 h-20 lg:w-28 lg:h-28 object-contain drop-shadow-[0_0_25px_rgba(255,255,255,0.5)]" />
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-500 to-purple-600 animate-gradient-x drop-shadow-xl">
+                GitVerse
+              </span>
+            </div>
           </h1>
           
           {/* Subtitle */}

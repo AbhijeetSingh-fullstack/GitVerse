@@ -46,7 +46,7 @@ export default function Dashboard() {
         if (providerToken) setToken(providerToken);
         if (username) {
           setViewedUser(username);
-          const githubData = await fetchGitHubStats(username, providerToken, true);
+          const githubData = await fetchGitHubStats(username, providerToken, false);
           setStats(githubData);
         }
       }
@@ -64,7 +64,7 @@ export default function Dashboard() {
     try {
       // Run the fetch and a minimum 2 second delay concurrently
       const [githubData] = await Promise.all([
-        fetchGitHubStats(usernameToSearch.trim(), token, true, true),
+        fetchGitHubStats(usernameToSearch.trim(), token, false, true),
         new Promise(resolve => setTimeout(resolve, 2000))
       ]);
       setStats(githubData);
@@ -85,12 +85,24 @@ export default function Dashboard() {
   const primaryRepo = stats?.topRepos?.[0];
   const commits = stats?.commits || 0;
   const reposCount = stats?.repos || 0;
+  const starsCount = stats?.stars || 0;
+  const followersCount = stats?.followers || 0;
   
-  // Calculate level based on commits (10,000 max for UI)
-  const maxXP = 10000;
-  const currentXP = Math.min(commits, maxXP);
-  const level = Math.floor(commits / 1000) + 1;
-  const xpPercent = (currentXP / maxXP) * 100;
+  // Composite XP System
+  const totalXP = (commits * 10) + (starsCount * 100) + (reposCount * 50) + (followersCount * 20);
+  
+  // Level Calculation: Exponential curve
+  // Level = floor(sqrt(totalXP / 100)) + 1
+  const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
+  
+  // Calculate exact XP thresholds for current and next level
+  const currentLevelXP = Math.pow(level - 1, 2) * 100;
+  const nextLevelXP = Math.pow(level, 2) * 100;
+  
+  // Progress within the current level
+  const xpIntoLevel = totalXP - currentLevelXP;
+  const xpRequiredForNextLevel = nextLevelXP - currentLevelXP;
+  const xpPercent = Math.min(100, Math.max(0, (xpIntoLevel / xpRequiredForNextLevel) * 100));
 
   return (
     <div className="relative w-full h-screen bg-[#050101] overflow-hidden font-sans text-gray-200">
@@ -162,7 +174,7 @@ export default function Dashboard() {
         {/* TOP HEADER */}
         <header className="flex justify-between items-start pointer-events-auto">
           <div className="flex items-center gap-2">
-            <Rocket className="text-white w-6 h-6" />
+            <img src="/GitVerse.png" alt="GitVerse Logo" className="w-8 h-8 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.6)]" />
             <span className="text-xl font-bold text-white tracking-wide">GitVerse<span className="text-xs ml-1 text-gray-400">✦</span></span>
           </div>
 
@@ -173,7 +185,6 @@ export default function Dashboard() {
               )}
             </div>
             <span className="text-sm font-semibold text-white">{user?.user_metadata?.full_name || user?.user_metadata?.user_name || "Astronaut"}</span>
-            <span className="text-[10px] font-bold bg-blue-600 px-2 py-0.5 rounded-full text-white">PRO</span>
           </div>
         </header>
 
@@ -189,19 +200,19 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className={`flex flex-col justify-between h-full transition-opacity duration-500 ${simulationMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`flex flex-col justify-between flex-1 min-h-0 transition-opacity duration-500 ${simulationMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           
           {/* MIDDLE SECTION: Left Panel & Right Nav */}
-          <div className="flex justify-between items-stretch mt-2 flex-1">
+          <div className="flex justify-between items-stretch mt-2 flex-1 min-h-0">
             
             {/* CENTRAL CONTENT AREA (For active tabs) */}
             {activeTab !== 'Overview' && (
-              <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 flex overflow-hidden min-h-0">
                 {activeTab === 'Overview' && null}
                 {activeTab === 'Explore' && <ExploreView onSearch={handleSearch} isSearching={isSearching} />}
                 {activeTab === 'Achievements' && <AchievementsView stats={stats} />}
                 {activeTab === 'Analytics' && <AnalyticsView stats={stats} commits={commits} />}
-                {activeTab === 'Settings' && <SettingsView biomeId={biomeId} setBiomeId={setBiomeId} onExitSimulation={() => setSimulationMode(false)} />}
+                {activeTab === 'Settings' && <SettingsView biomeId={biomeId} setBiomeId={setBiomeId} onExitSimulation={() => setSimulationMode(false)} user={user} />}
               </div>
             )}
             
@@ -223,7 +234,7 @@ export default function Dashboard() {
                       setIsWarping(true); // Trigger warp effect
                       try {
                         const [data] = await Promise.all([
-                          fetchGitHubStats(user.user_metadata.user_name, token, true, false),
+                          fetchGitHubStats(user.user_metadata.user_name, token, false, false),
                           new Promise(resolve => setTimeout(resolve, 2000))
                         ]);
                         setStats(data);
@@ -372,7 +383,7 @@ export default function Dashboard() {
             
             <div className="flex justify-between items-end mb-2">
               <span className="text-sm text-gray-400">Planet Level</span>
-              <span className="text-xs text-gray-500">{currentXP.toLocaleString()} / {maxXP.toLocaleString()} XP</span>
+              <span className="text-xs text-gray-500">{totalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP</span>
             </div>
             <div className="flex items-center gap-3 mb-8">
               <span className="text-2xl font-bold text-white">Lv. {level}</span>

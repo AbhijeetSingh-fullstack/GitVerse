@@ -1,69 +1,17 @@
-import React, { useState } from 'react';
-import { Settings, LogOut, Monitor, Palette, Star } from 'lucide-react';
+import React from 'react';
+import { Settings, LogOut, Monitor, Palette, Star, ShieldCheck, User } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import Script from 'next/script';
 
 interface SettingsViewProps {
   biomeId: string;
   setBiomeId: (b: string) => void;
   onExitSimulation: () => void;
+  user: any;
 }
 
-export default function SettingsView({ biomeId, setBiomeId, onExitSimulation }: SettingsViewProps) {
+export default function SettingsView({ biomeId, setBiomeId, onExitSimulation, user }: SettingsViewProps) {
   const router = useRouter();
-  const [isPro, setIsPro] = useState(false);
-  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-
-  const handleUpgrade = async () => {
-    setIsPaymentLoading(true);
-    try {
-      const response = await fetch('/api/razorpay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 100 }), // ₹1
-      });
-      
-      const order = await response.json();
-      
-      if (!order.id) {
-        throw new Error('Failed to create order');
-      }
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Usually public key goes here, but it's safe to expose key_id
-        amount: order.amount,
-        currency: order.currency,
-        name: 'GitVerse Pro',
-        description: 'Upgrade to GitVerse Pro Tier',
-        order_id: order.id,
-        handler: function (response: any) {
-          setIsPro(true);
-          alert('Welcome to Pro! Payment successful.');
-          // Update supabase if needed
-        },
-        prefill: {
-          name: 'GitVerse Astronaut',
-          email: 'astronaut@gitverse.com',
-          contact: '9999999999',
-        },
-        theme: {
-          color: '#f97316', // orange-500
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function (response: any) {
-        alert('Payment failed: ' + response.error.description);
-      });
-      rzp.open();
-    } catch (error) {
-      console.error(error);
-      alert('Something went wrong during payment initialization.');
-    } finally {
-      setIsPaymentLoading(false);
-    }
-  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -84,59 +32,37 @@ export default function SettingsView({ biomeId, setBiomeId, onExitSimulation }: 
       </div>
 
       <div className="max-w-3xl space-y-8">
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" />
         
-        {/* Pro Plan Upgrade */}
-        <div className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-2xl rounded-full"></div>
-          <div className="flex items-center gap-2 mb-2">
-            <Star className="w-5 h-5 text-orange-400" />
-            <h3 className="text-lg font-bold text-white">GitVerse Pro</h3>
+        {/* Essential Credentials */}
+        <div className="bg-black/60 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-2xl rounded-full"></div>
+          <div className="flex items-center gap-2 mb-6">
+            <User className="w-5 h-5 text-blue-400" />
+            <h3 className="text-lg font-bold text-white">Essential Credentials</h3>
           </div>
-          <p className="text-xs text-gray-400 mb-6 relative z-10">Upgrade to unlock advanced 3D visualizers, premium planetary biomes, and unlimited time-travel simulation.</p>
           
-          {isPro ? (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex justify-center items-center">
-              <span className="text-emerald-400 font-bold text-sm tracking-widest uppercase">Pro Access Granted 🎉</span>
+          <div className="flex items-center gap-6 relative z-10">
+            <div className="w-20 h-20 rounded-2xl bg-blue-900/50 border border-blue-500/30 overflow-hidden shadow-inner flex-shrink-0">
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-blue-400 font-bold text-2xl">?</div>
+              )}
             </div>
-          ) : (
-            <button 
-              onClick={handleUpgrade}
-              disabled={isPaymentLoading}
-              className={`bg-orange-500 hover:bg-orange-600 text-white w-full rounded-xl py-3 font-bold uppercase tracking-widest text-sm transition-all shadow-[0_0_15px_rgba(249,115,22,0.4)] ${isPaymentLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              {isPaymentLoading ? 'Initializing Link...' : 'Upgrade for ₹1 (UPI Supported)'}
-            </button>
-          )}
-        </div>
-
-        {/* Biome Selection */}
-        <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center gap-2 mb-4">
-            <Palette className="w-5 h-5 text-orange-400" />
-            <h3 className="text-lg font-bold text-white">Planetary Biome</h3>
-          </div>
-          <p className="text-xs text-gray-400 mb-6">Select the atmospheric and geological theme for your system. This immediately updates the entire rendering engine.</p>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {['mars', 'cyberpunk', 'lunar'].map((b) => (
-              <button 
-                key={b}
-                onClick={() => setBiomeId(b)}
-                className={`relative overflow-hidden rounded-xl p-4 transition-all border ${biomeId === b ? 'border-orange-500 bg-orange-500/10' : 'border-white/10 hover:border-white/30 bg-white/5'}`}
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-white uppercase tracking-wider text-sm">{b}</span>
-                  {biomeId === b && <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,1)]"></div>}
+            
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-2xl font-extrabold text-white">{user?.user_metadata?.full_name || "Astronaut"}</h4>
+                <div className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest">
+                  <ShieldCheck className="w-3 h-3" />
+                  Verified
                 </div>
-                <div className="h-16 rounded-lg w-full overflow-hidden flex shadow-inner">
-                  {/* Miniature biome previews */}
-                  {b === 'mars' && <div className="w-full h-full bg-gradient-to-br from-orange-800 to-orange-500"></div>}
-                  {b === 'cyberpunk' && <div className="w-full h-full bg-gradient-to-br from-purple-900 to-cyan-500"></div>}
-                  {b === 'lunar' && <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-700"></div>}
-                </div>
-              </button>
-            ))}
+              </div>
+              <p className="text-sm text-gray-400 font-mono">@{user?.user_metadata?.user_name || "unknown"}</p>
+              {user?.email && (
+                <p className="text-xs text-gray-500 mt-1">{user.email}</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -148,12 +74,21 @@ export default function SettingsView({ biomeId, setBiomeId, onExitSimulation }: 
           </div>
           <p className="text-xs text-gray-400 mb-6">Log out of your current session. You will need to re-authenticate with GitHub to return to your planet.</p>
           
-          <button 
-            onClick={handleLogout}
-            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-400 px-6 py-2 rounded-lg font-bold uppercase tracking-wider text-sm transition-all"
-          >
-            Disconnect Data-Link
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleLogout}
+              className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-400 px-6 py-2 rounded-lg font-bold uppercase tracking-wider text-sm transition-all"
+            >
+              Disconnect Data-Link
+            </button>
+
+            <button 
+              onClick={() => window.open('/privacy', '_blank')}
+              className="bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/50 text-gray-400 px-6 py-2 rounded-lg font-bold uppercase tracking-wider text-sm transition-all"
+            >
+              Privacy Policies
+            </button>
+          </div>
         </div>
 
       </div>
