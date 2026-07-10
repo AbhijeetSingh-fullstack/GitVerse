@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌌 GitVerse
 
-## Getting Started
+![GitVerse Banner](./public/GitVerse.png)
 
-First, run the development server:
+> **Transform your GitHub history into a thriving, living 3D planetary system.**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+GitVerse is a next-generation data visualization platform that turns your daily GitHub commits, repositories, and stars into an interactive, gamified 3D universe. Explore your codebase like never before, unlock achievements, and travel to other developers' galaxies.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ✨ Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🪐 3D Planetary Overview
+Your repositories are no longer just lists—they are planets orbiting your central star. 
+- **Planet Size**: Represents the number of commits and overall activity.
+- **Planet Color & Biome**: Determined by the primary programming language of the repository.
+- **Cinematic View**: Dive down to the surface of your repositories and explore your code cities in real-time 3D.
 
-## Learn More
+![Planetary Overview](./public/screenshot-overview.png)
+*A visual representation of your GitHub ecosystem.*
 
-To learn more about Next.js, take a look at the following resources:
+### 🚀 Explore the Galaxy
+Don't just stay in your own solar system. Use the **Explore** feature to search for any GitHub user and warp to their galaxy. Check out trending systems from legendary developers like `@torvalds` or `@yyx990803`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+![Explore View](./public/screenshot-explore.png)
+*Warp to other developers' systems seamlessly.*
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 🏆 Gamified Achievements
+Your GitHub activity unlocks unique planetary milestones. From making your first commit to collecting over 500 stars across your galaxy, track your progress and level up your developer status.
 
-## Deploy on Vercel
+![Achievements View](./public/screenshot-achievements.png)
+*Unlock milestones based on your coding journey.*
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 📊 Analytics Core
+Deep dive into your planetary metrics. View detailed telemetry including your total commits, total stars, and a breakdown of your repository language distribution.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+![Analytics View](./public/screenshot-analytics.png)
+*Understand your code distribution at a glance.*
+
+### ⚙️ System Settings
+Manage your essential credentials, verify your GitHub data-link, and configure your planetary visualization preferences all from a sleek, glassmorphism UI.
+
+![Settings View](./public/screenshot-settings.png)
+*Secure and intuitive account management.*
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **3D Rendering**: [Three.js](https://threejs.org/) & [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Authentication**: [Supabase](https://supabase.com/) & GitHub OAuth
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+Make sure you have Node.js installed on your machine.
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/GitVerse.git
+   cd GitVerse
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up Environment Variables**
+   Create a `.env.local` file in the root of the project and add your Supabase and GitHub credentials:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Run the Development Server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Explore your Universe**
+   Open [http://localhost:3000](http://localhost:3000) in your browser, log in with GitHub, and watch your universe come to life!
+
+---
+
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/GitVerse/issues).
+
+## 📝 License
+This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
