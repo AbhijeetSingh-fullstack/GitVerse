@@ -18,7 +18,19 @@ const ringColors = [
   { color: "text-pink-400", border: "border-pink-500/50" },
 ];
 
-export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepos = [], timeOverride, biomeId = 'mars', onEnterRepo, onSelectRepo }: { commits: number, repos: number, stars: number, topRepos?: any[], timeOverride?: number, biomeId?: string, onEnterRepo?: (name: string) => void, onSelectRepo?: (repoInfo: any) => void }) {
+interface PlanetProps {
+  commits: number;
+  repos: number;
+  stars: number;
+  topRepos: any[];
+  timeOverride?: number;
+  biomeId?: string;
+  isWarping?: boolean;
+  onEnterRepo?: (repoName: string) => void;
+  onSelectRepo?: (repoInfo: any) => void;
+}
+
+export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepos = [], timeOverride, biomeId = 'mars', isWarping = false, onEnterRepo, onSelectRepo }: PlanetProps) {
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   
   const planetsData = useMemo(() => {
@@ -107,7 +119,7 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
       
       <Stars radius={150} depth={100} count={8000} factor={6} saturation={0.5} fade speed={1.5} />
       
-      <DeepSpaceVisuals />
+      <DeepSpaceVisuals isWarping={isWarping} />
       
       <OrbitControls 
         enableZoom={true} 
@@ -124,7 +136,7 @@ export default function SolarSystem({ commits = 0, repos = 0, stars = 0, topRepo
       {/* PointLight at the center (the star) */}
       <pointLight position={[0, 0, 0]} intensity={2500} distance={250} decay={2} color="#ffffff" />
 
-      <group>
+      <group visible={!isWarping}>
         {/* Central Star (User) */}
         <mesh>
           <sphereGeometry args={[5, 64, 64]} />
@@ -255,9 +267,69 @@ function MoonMesh({ moon, parentSize }: { moon: any, parentSize: number }) {
   );
 }
 
-function DeepSpaceVisuals() {
+function DeepSpaceVisuals({ isWarping = false }: { isWarping?: boolean }) {
   return (
     <group>
+      {isWarping && <WarpEffect />}
     </group>
+  );
+}
+
+function WarpEffect() {
+  const lineCount = 1500;
+  const linesRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const speedRef = useRef(0);
+  
+  const lines = useMemo(() => {
+    return Array.from({ length: lineCount }).map(() => {
+      // Start them randomly far away in a cylinder around the camera Z axis
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 5 + Math.random() * 100; // Keep a hollow center so the camera doesn't hit them instantly
+      const z = -200 - Math.random() * 500; // Start far in the distance
+      return {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        z: z,
+        speed: 100 + Math.random() * 200 // Individual varying speed
+      };
+    });
+  }, [lineCount]);
+
+  useFrame((state, delta) => {
+    if (!linesRef.current) return;
+    
+    // Lock the warp effect to the camera so you always move "forward" into the warp tunnel
+    linesRef.current.position.copy(state.camera.position);
+    linesRef.current.quaternion.copy(state.camera.quaternion);
+
+    // Accelerate warp speed smoothly
+    speedRef.current = THREE.MathUtils.lerp(speedRef.current, 1.0, delta * 2);
+    
+    lines.forEach((line, i) => {
+      // Move line towards camera (+Z)
+      line.z += line.speed * speedRef.current * delta * 5;
+      
+      // If it goes past camera, reset it far back
+      if (line.z > 50) {
+        line.z = -400 - Math.random() * 200;
+      }
+
+      dummy.position.set(line.x, line.y, line.z);
+      // Scale it out to look like a streak stretching along Z axis
+      dummy.scale.set(0.1, 0.1, 15 * speedRef.current);
+      dummy.updateMatrix();
+      linesRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    
+    linesRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={linesRef} args={[undefined, undefined, lineCount]}>
+      {/* A simple box geometry elongated to look like a line */}
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </instancedMesh>
   );
 }

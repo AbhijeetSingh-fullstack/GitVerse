@@ -44,7 +44,7 @@ export interface GitHubStats {
   heatmap: number[];
 }
 
-export async function fetchGitHubStats(username: string, providerToken?: string, isPro: boolean = false): Promise<GitHubStats> {
+export async function fetchGitHubStats(username: string, providerToken?: string, isPro: boolean = false, isSearch: boolean = false): Promise<GitHubStats> {
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github.v3+json',
   };
@@ -123,7 +123,7 @@ export async function fetchGitHubStats(username: string, providerToken?: string,
     let topRepos: GitHubRepo[] = [];
     let totalStars = 0;
     try {
-      const reposUrl = (isPro && providerToken) 
+      const reposUrl = (isPro && providerToken && !isSearch) 
         ? `https://api.github.com/user/repos?type=all&sort=updated&per_page=12` 
         : `https://api.github.com/users/${username}/repos?sort=updated&per_page=12`;
       const reposRes = await fetch(reposUrl, { headers });

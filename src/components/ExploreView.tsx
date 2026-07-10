@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
 import { Search, Map, Star, User } from 'lucide-react';
 
-export default function ExploreView() {
+interface ExploreViewProps {
+  onSearch?: (username: string) => void;
+  isSearching?: boolean;
+}
+
+export default function ExploreView({ onSearch, isSearching = false }: ExploreViewProps) {
   const [query, setQuery] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSearch && query.trim()) {
+      onSearch(query.trim());
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center pointer-events-auto px-10">
@@ -19,7 +31,7 @@ export default function ExploreView() {
           <p className="text-sm text-gray-400">Discover other developers' planetary systems, view their repositories, and explore their codebase.</p>
         </div>
 
-        <div className="relative z-10 w-full mb-8">
+        <form onSubmit={handleSubmit} className="relative z-10 w-full mb-8">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input 
@@ -29,14 +41,27 @@ export default function ExploreView() {
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
             />
+            {isSearching && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <div className="animate-spin h-5 w-5 border-2 border-cyan-500 border-t-transparent rounded-full" />
+              </div>
+            )}
           </div>
-        </div>
+        </form>
 
         <div className="relative z-10">
           <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Trending Systems</h3>
           <div className="grid grid-cols-2 gap-4">
             {['torvalds', 'yyx990803', 'gaearon', 'Rich-Harris'].map(user => (
-              <button key={user} className="flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl transition-all text-left">
+              <button 
+                key={user} 
+                onClick={() => {
+                  setQuery(user);
+                  if (onSearch) onSearch(user);
+                }}
+                disabled={isSearching}
+                className="flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl transition-all text-left disabled:opacity-50"
+              >
                 <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
                   <User className="w-5 h-5 text-gray-400" />
                 </div>

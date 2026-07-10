@@ -23,6 +23,12 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [selectedPlanetInfo, setSelectedPlanetInfo] = useState<any>(null);
   
+  // Search State
+  const [viewedUser, setViewedUser] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isWarping, setIsWarping] = useState(false);
+  
   // Adventure Mode State hoisted to root
   const [adventureMode, setAdventureMode] = useState(false);
   const [triggerExit, setTriggerExit] = useState(false);
@@ -39,6 +45,7 @@ export default function Dashboard() {
         const providerToken = session.provider_token; 
         if (providerToken) setToken(providerToken);
         if (username) {
+          setViewedUser(username);
           const githubData = await fetchGitHubStats(username, providerToken, true);
           setStats(githubData);
         }
@@ -47,6 +54,29 @@ export default function Dashboard() {
     };
     initData();
   }, [supabase.auth]);
+
+  const handleSearch = async (usernameToSearch: string) => {
+    if (!usernameToSearch.trim() || usernameToSearch === viewedUser) return;
+    
+    setIsSearching(true);
+    setIsWarping(true); // Trigger warp effect
+    setViewedUser(usernameToSearch.trim());
+    try {
+      // Run the fetch and a minimum 2 second delay concurrently
+      const [githubData] = await Promise.all([
+        fetchGitHubStats(usernameToSearch.trim(), token, true, true),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      setStats(githubData);
+      setSurfaceViewRepo(null); // Reset surface view if open
+      setActiveTab('Overview'); // Go back to Overview to see the new solar system
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+      setIsWarping(false); // End warp effect
+    }
+  };
 
   if (loading) {
     return <div className="w-full h-screen bg-[#050101] text-white flex items-center justify-center">Establishing Connection...</div>;
@@ -72,7 +102,7 @@ export default function Dashboard() {
             <PlanetSurface 
               repoData={surfaceViewRepo} 
               token={token} 
-              owner={user?.user_metadata?.user_name} 
+              owner={viewedUser || user?.user_metadata?.user_name} 
               adventureMode={adventureMode}
               triggerExit={triggerExit}
               onExitComplete={() => {
@@ -87,6 +117,7 @@ export default function Dashboard() {
               stars={stats?.stars || 0} 
               topRepos={stats?.topRepos || []} 
               biomeId={biomeId}
+              isWarping={isWarping}
               onEnterRepo={(repoName) => {
                 const repo = stats?.topRepos?.find(r => r.name === repoName);
                 if (repo) {
@@ -101,7 +132,7 @@ export default function Dashboard() {
       </div>
 
       {surfaceViewRepo && !triggerExit && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-3">
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-3">
           <div className="bg-black/80 text-white px-4 py-2 rounded-xl border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
             <span className="font-bold text-blue-400">/{surfaceViewRepo.name}</span> Surface View
           </div>
@@ -166,7 +197,8 @@ export default function Dashboard() {
             {/* CENTRAL CONTENT AREA (For active tabs) */}
             {activeTab !== 'Overview' && (
               <div className="flex-1 flex overflow-hidden">
-                {activeTab === 'Explore' && <ExploreView />}
+                {activeTab === 'Overview' && null}
+                {activeTab === 'Explore' && <ExploreView onSearch={handleSearch} isSearching={isSearching} />}
                 {activeTab === 'Achievements' && <AchievementsView stats={stats} />}
                 {activeTab === 'Analytics' && <AnalyticsView stats={stats} commits={commits} />}
                 {activeTab === 'Settings' && <SettingsView biomeId={biomeId} setBiomeId={setBiomeId} onExitSimulation={() => setSimulationMode(false)} />}
@@ -174,12 +206,42 @@ export default function Dashboard() {
             )}
             
             {/* LEFT SECTION */}
-            <div className={`flex flex-col gap-4 max-w-sm transition-all duration-300 ${activeTab === 'Overview' && !selectedPlanetInfo ? 'opacity-100' : 'opacity-0 pointer-events-none absolute -left-[100%]'}`}>
+            <div className={`flex flex-col gap-4 max-w-sm transition-all duration-300 ${activeTab === 'Overview' && !selectedPlanetInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute -left-[100%]'}`}>
               
               <div>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Planet Overview</p>
-                <h1 className="text-xl font-semibold text-white">{user?.user_metadata?.user_name || "Astronaut"}'s Planet</h1>
+                <h1 className="text-xl font-semibold text-white">{viewedUser || user?.user_metadata?.user_name || "Astronaut"}'s Planet</h1>
               </div>
+
+              {/* Return to My System Button */}
+              {viewedUser && viewedUser !== user?.user_metadata?.user_name && (
+                <button 
+                  onClick={async () => {
+                    if (user?.user_metadata?.user_name) {
+                      setViewedUser(user.user_metadata.user_name);
+                      setIsSearching(true);
+                      setIsWarping(true); // Trigger warp effect
+                      try {
+                        const [data] = await Promise.all([
+                          fetchGitHubStats(user.user_metadata.user_name, token, true, false),
+                          new Promise(resolve => setTimeout(resolve, 2000))
+                        ]);
+                        setStats(data);
+                        setActiveTab('Overview');
+                        setSurfaceViewRepo(null);
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setIsSearching(false);
+                        setIsWarping(false);
+                      }
+                    }
+                  }}
+                  className="w-full bg-blue-600/80 hover:bg-blue-600 text-white py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-lg border border-blue-400/50"
+                >
+                  Return to My System
+                </button>
+              )}
 
               {/* Quick Stats Row */}
               <div className="flex justify-between items-center bg-black/40 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-xl">
